@@ -7,6 +7,11 @@ export default defineConfig({
     testTimeout: 60_000,
     hookTimeout: 120_000,
     fileParallelism: false,
+    // Strapi v5's admin plugin destroy throws when serveAdminPanel is false
+    // (conditionProvider isn't registered). The throw happens in a SIGTERM/
+    // SIGINT handler outside our test code, so our afterAll catch can't reach
+    // it. The actual tests pass cleanly — this just suppresses the noise.
+    dangerouslyIgnoreUnhandledErrors: true,
     pool: "forks",
     poolOptions: {
       forks: {
