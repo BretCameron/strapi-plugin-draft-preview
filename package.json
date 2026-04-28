@@ -1,18 +1,27 @@
 {
   "name": "strapi-plugin-include-drafts",
   "version": "0.1.0",
-  "description": "Strapi v5 plugin that lets clients fetch draft content over GraphQL by sending a header. Solves the rootQueryArgs / association populate issue where resolversConfig middlewares can't reach relation populates.",
+  "description": "Preview unpublished Strapi v5 content from your frontend by sending one HTTP header. Drafts come back over GraphQL with all populated relations, no per-query rewrites needed.",
   "keywords": [
     "strapi",
     "strapi-plugin",
+    "strapi-v5",
     "graphql",
     "draft",
+    "drafts",
     "preview",
-    "header"
+    "draft-preview",
+    "preview-mode",
+    "draft-and-publish",
+    "headless-cms",
+    "cms",
+    "header",
+    "apollo",
+    "apollo-server"
   ],
   "strapi": {
     "name": "include-drafts",
-    "description": "Lets clients fetch draft content over GraphQL by sending a header.",
+    "description": "Preview drafts over GraphQL by sending an HTTP header.",
     "kind": "plugin",
     "displayName": "Include Drafts"
   },
