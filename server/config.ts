@@ -16,19 +16,31 @@ export const defaultConfig: PluginConfig = {
 export default {
   default: defaultConfig,
   validator(config: Partial<PluginConfig>) {
-    if (config.headerName !== undefined && typeof config.headerName !== "string") {
-      throw new Error("strapi-plugin-include-drafts: headerName must be a string");
+    if (
+      config.headerName !== undefined &&
+      typeof config.headerName !== "string"
+    ) {
+      throw new Error(
+        "strapi-plugin-include-drafts: headerName must be a string",
+      );
     }
 
     if (
       config.expectedHeaderValue !== undefined &&
       typeof config.expectedHeaderValue !== "string"
     ) {
-      throw new Error("strapi-plugin-include-drafts: expectedHeaderValue must be a string");
+      throw new Error(
+        "strapi-plugin-include-drafts: expectedHeaderValue must be a string",
+      );
     }
 
-    if (config.statusValue !== undefined && typeof config.statusValue !== "string") {
-      throw new Error("strapi-plugin-include-drafts: statusValue must be a string");
+    if (
+      config.statusValue !== undefined &&
+      typeof config.statusValue !== "string"
+    ) {
+      throw new Error(
+        "strapi-plugin-include-drafts: statusValue must be a string",
+      );
     }
   },
 };

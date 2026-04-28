@@ -4,16 +4,18 @@ interface WillResolveFieldArgs {
   source: unknown;
   args: Record<string, unknown>;
   contextValue: {
-    koaContext?: { request?: { header?: Record<string, string | string[] | undefined> } };
+    koaContext?: {
+      request?: { header?: Record<string, string | string[] | undefined> };
+    };
     rootQueryArgs?: Record<string, unknown>;
   };
   info: {
     fieldName: string;
     operation: { operation: string };
-    parentType: { getFields(): Record<string, { args?: Array<{ name: string }> }> };
-    fieldNodes?: ReadonlyArray<{
-      arguments?: ReadonlyArray<{ name?: { value?: string } }>;
-    }>;
+    parentType: { getFields(): Record<string, { args?: { name: string }[] }> };
+    fieldNodes?: readonly {
+      arguments?: readonly { name?: { value?: string } }[];
+    }[];
   };
 }
 
@@ -39,16 +41,16 @@ interface WillResolveFieldArgs {
  */
 export function createApolloPlugin(config: PluginConfig) {
   return {
-    async requestDidStart() {
-      return {
-        async executionDidStart() {
-          return {
+    requestDidStart() {
+      return Promise.resolve({
+        executionDidStart() {
+          return Promise.resolve({
             willResolveField(params: WillResolveFieldArgs) {
               applyDraftStatus(params, config);
             },
-          };
+          });
         },
-      };
+      });
     },
   };
 }
@@ -61,7 +63,8 @@ export function applyDraftStatus(
   { source, args, contextValue, info }: WillResolveFieldArgs,
   config: PluginConfig,
 ): void {
-  const headerValue = contextValue?.koaContext?.request?.header?.[config.headerName];
+  const headerValue =
+    contextValue?.koaContext?.request?.header?.[config.headerName];
 
   if (headerValue !== config.expectedHeaderValue) return;
 

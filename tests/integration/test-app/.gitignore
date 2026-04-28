@@ -1,0 +1,10 @@
+node_modules/
+dist/
+build/
+.tmp/
+.cache/
+.strapi/
+.strapi-updater.json
+public/uploads/
+*.db
+package-lock.json

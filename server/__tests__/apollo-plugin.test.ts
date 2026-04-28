@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyDraftStatus } from "../apollo-plugin";
+import { applyDraftStatus, createApolloPlugin } from "../apollo-plugin";
 import { defaultConfig, type PluginConfig } from "../config";
 
 type Params = Parameters<typeof applyDraftStatus>[0];
@@ -29,9 +29,7 @@ const buildParams = (overrides: {
     ? [{ name: "status" }, { name: "filters" }]
     : [{ name: "filters" }];
 
-  const argumentNodes = explicitStatus
-    ? [{ name: { value: "status" } }]
-    : [];
+  const argumentNodes = explicitStatus ? [{ name: { value: "status" } }] : [];
 
   return {
     source,
@@ -184,5 +182,20 @@ describe("applyDraftStatus", () => {
 
     expect(params.args.status).toBe("preview");
     expect(params.contextValue.rootQueryArgs?.status).toBe("preview");
+  });
+});
+
+describe("createApolloPlugin", () => {
+  it("returns an Apollo plugin whose willResolveField mutates args end-to-end", async () => {
+    const plugin = createApolloPlugin(defaultConfig);
+
+    const requestState = await plugin.requestDidStart();
+    const executionState = await requestState.executionDidStart();
+
+    const params = buildParams({ header: "true" });
+    executionState.willResolveField(params);
+
+    expect(params.args.status).toBe("draft");
+    expect(params.contextValue.rootQueryArgs?.status).toBe("draft");
   });
 });

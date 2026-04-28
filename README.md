@@ -1,12 +1,17 @@
 # strapi-plugin-include-drafts
 
+[![CI](https://github.com/BretCameron/strapi-plugin-include-drafts/actions/workflows/ci.yml/badge.svg)](https://github.com/BretCameron/strapi-plugin-include-drafts/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/strapi-plugin-include-drafts.svg)](https://www.npmjs.com/package/strapi-plugin-include-drafts)
+[![npm downloads](https://img.shields.io/npm/dm/strapi-plugin-include-drafts.svg)](https://www.npmjs.com/package/strapi-plugin-include-drafts)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 A Strapi v5 plugin that lets clients fetch draft content over GraphQL by sending an HTTP header — no per-query `status: DRAFT` argument needed.
 
 ## Why this exists
 
 Strapi v5 supports a `status` argument on every GraphQL query for draft-and-publish content types. The obvious way to flip every query to draft based on a header is a `resolversConfig` middleware — but that doesn't work for relations.
 
-Strapi's GraphQL plugin captures `contextValue.rootQueryArgs` from the root query's args inside a `willResolveField` Apollo plugin. The association resolver reads `rootQueryArgs.status` to populate relations. A `resolversConfig` middleware runs *after* that snapshot is captured, so its `args.status` mutation never reaches relation populates — drafts come back with every relation as `null`.
+Strapi's GraphQL plugin captures `contextValue.rootQueryArgs` from the root query's args inside a `willResolveField` Apollo plugin. The association resolver reads `rootQueryArgs.status` to populate relations. A `resolversConfig` middleware runs _after_ that snapshot is captured, so its `args.status` mutation never reaches relation populates — drafts come back with every relation as `null`.
 
 This plugin hooks `willResolveField` directly, mutating both `args.status` and `rootQueryArgs.status`, so populates inherit the draft status as expected.
 
@@ -39,9 +44,9 @@ module.exports = {
   "include-drafts": {
     enabled: true,
     config: {
-      headerName: "x-strapi-preview",     // default: "x-include-drafts"
-      expectedHeaderValue: "1",           // default: "true"
-      statusValue: "draft",               // default: "draft"
+      headerName: "x-strapi-preview", // default: "x-include-drafts"
+      expectedHeaderValue: "1", // default: "true"
+      statusValue: "draft", // default: "draft"
     },
   },
 };

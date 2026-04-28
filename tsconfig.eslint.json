@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "server/**/*.ts",
+    "tests/**/*.ts",
+    "scripts/**/*.js",
+    "strapi-server.js",
+    "*.ts",
+    "*.mjs"
+  ],
+  "exclude": ["node_modules/", "dist/", "tests/integration/test-app/**"],
+  "compilerOptions": {
+    "allowJs": true,
+    "noEmit": true
+  }
+}

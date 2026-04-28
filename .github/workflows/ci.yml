@@ -7,9 +7,11 @@ on:
     branches: [main]
 
 jobs:
-  test:
+  unit:
+    name: Unit tests (Node ${{ matrix.node }})
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         node: [18, 20, 22]
     steps:
@@ -26,4 +28,48 @@ jobs:
 
       - run: npm run build
 
-      - run: npm test
+      - run: npm run test:unit
+
+      - name: Coverage (Node 20 only)
+        if: matrix.node == 20
+        run: npm run test:coverage
+
+      - name: Lint (Node 20 only)
+        if: matrix.node == 20
+        run: npm run lint
+
+      - name: Format check (Node 20 only)
+        if: matrix.node == 20
+        run: npm run format:check
+
+  integration:
+    name: Integration (Node ${{ matrix.node }}, Strapi ${{ matrix.strapi }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20]
+        # Pin against the version we developed with, plus latest 5.x to
+        # catch upgrade-time contract breaks.
+        strapi:
+          - "5.43.0"
+          - "latest"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Override Strapi version
+        if: matrix.strapi != ''
+        run: |
+          npm install --save-dev --no-audit --no-fund \
+            @strapi/strapi@${{ matrix.strapi }} \
+            @strapi/plugin-graphql@${{ matrix.strapi }} \
+            @strapi/plugin-users-permissions@${{ matrix.strapi }}
+
+      - run: npm run test:integration

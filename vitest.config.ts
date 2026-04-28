@@ -8,6 +8,13 @@ export default defineConfig({
       provider: "v8",
       include: ["server/**/*.ts"],
       exclude: ["server/__tests__/**", "server/index.ts", "server/register.ts"],
+      reporter: ["text", "html", "json-summary"],
+      thresholds: {
+        statements: 90,
+        branches: 90,
+        functions: 90,
+        lines: 90,
+      },
     },
   },
 });

@@ -1,0 +1,32 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    groups:
+      strapi:
+        patterns:
+          - "@strapi/*"
+      eslint:
+        patterns:
+          - "eslint*"
+          - "@eslint/*"
+          - "typescript-eslint"
+          - "prettier"
+      vitest:
+        patterns:
+          - "vitest"
+          - "@vitest/*"
+      changesets:
+        patterns:
+          - "@changesets/*"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 3

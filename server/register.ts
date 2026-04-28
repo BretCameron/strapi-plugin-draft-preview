@@ -13,17 +13,16 @@ export default ({ strapi }: { strapi: Core.Strapi }) => {
     return;
   }
 
-  const pluginConfig = strapi.config.get(
+  const pluginConfig = strapi.config.get<PluginConfig>(
     "plugin::include-drafts",
-  ) as PluginConfig;
+  );
 
   const apolloPlugin = createApolloPlugin(pluginConfig);
 
   // Append to the GraphQL plugin's apolloServer.plugins array. The Strapi
   // GraphQL plugin merges this into the Apollo Server config at boot.
-  const existing = (strapi.config.get(
-    "plugin::graphql.apolloServer.plugins",
-  ) as unknown[]) || [];
+  const existing =
+    strapi.config.get<unknown[]>("plugin::graphql.apolloServer.plugins") ?? [];
 
   strapi.config.set("plugin::graphql.apolloServer.plugins", [
     ...existing,
