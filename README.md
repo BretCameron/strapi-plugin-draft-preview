@@ -5,39 +5,59 @@
 [![npm downloads](https://img.shields.io/npm/dm/strapi-plugin-include-drafts.svg)](https://www.npmjs.com/package/strapi-plugin-include-drafts)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-A Strapi v5 plugin that lets clients fetch draft content over GraphQL by sending an HTTP header — no per-query `status: DRAFT` argument needed.
+**Preview unpublished Strapi content from your frontend with a single HTTP header.**
 
-## Why this exists
+Drop in this plugin, send `x-include-drafts: true` from your preview environment, and every GraphQL query returns draft content, including nested relations. No per-query rewrites, no parallel staging schemas.
 
-Strapi v5 supports a `status` argument on every GraphQL query for draft-and-publish content types. The obvious way to flip every query to draft based on a header is a `resolversConfig` middleware — but that doesn't work for relations.
+## Why you'd want this
 
-Strapi's GraphQL plugin captures `contextValue.rootQueryArgs` from the root query's args inside a `willResolveField` Apollo plugin. The association resolver reads `rootQueryArgs.status` to populate relations. A `resolversConfig` middleware runs _after_ that snapshot is captured, so its `args.status` mutation never reaches relation populates — drafts come back with every relation as `null`.
+You've got a Strapi v5 backend powering a Next.js, Remix, or any other frontend. Your editorial team wants to preview draft content on a staging URL before it goes live. Strapi v5 added a `status: DRAFT` GraphQL argument for exactly this. Plumbing it through every query in your codebase is painful, though, and the obvious "flip everything to draft via a middleware" approach silently breaks: every relation comes back as `null` in draft mode.
 
-This plugin hooks `willResolveField` directly, mutating both `args.status` and `rootQueryArgs.status`, so populates inherit the draft status as expected.
+This plugin makes draft preview a one-line config change:
+
+```js
+// config/plugins.js
+module.exports = {
+  "include-drafts": { enabled: true },
+};
+```
+
+Now your staging frontend sends one header and gets drafts back. Production sends nothing and gets published content. Same queries, no branching logic.
 
 ## Install
 
 ```sh
 npm install strapi-plugin-include-drafts
-# or
-yarn add strapi-plugin-include-drafts
 ```
 
-## Enable
-
-In `config/plugins.js`:
-
 ```js
+// config/plugins.js
 module.exports = {
-  "include-drafts": {
-    enabled: true,
-  },
+  "include-drafts": { enabled: true },
 };
 ```
 
-That's it. Any GraphQL request carrying `x-include-drafts: true` will now return drafts (with relations populated) for any built-in query that accepts a `status` arg.
+Then send `x-include-drafts: true` from your frontend in non-production environments. Apollo Client example:
 
-## Configure (optional)
+```ts
+const draftHeaderLink = setContext((_, { headers }) => ({
+  headers: {
+    ...headers,
+    ...(process.env.NODE_ENV !== "production" && {
+      "x-include-drafts": "true",
+    }),
+  },
+}));
+```
+
+## What you get
+
+- Drafts from every built-in resolver: list, single, and `*_connection`.
+- Relations populate correctly in draft mode. This is the main reason to use a plugin instead of a middleware — explained below.
+- Custom resolvers and non-draft content types are left alone. Only fields that declare a `status` arg are touched.
+- Explicit query intent wins. A query passing `status: PUBLISHED` ignores the header.
+
+## Configuration (all optional)
 
 ```js
 module.exports = {
@@ -52,45 +72,42 @@ module.exports = {
 };
 ```
 
-## Behaviour
+## Verify it works
 
-- **Only acts on root query fields.** Sub-fields and mutations are ignored.
-- **Only acts on fields that accept a `status` arg.** Custom resolvers and content types without draft-and-publish are left alone.
-- **Honours an explicit `status` argument from the query.** If a query writes `portalResources(status: PUBLISHED, ...)`, the user's intent wins regardless of the header. The check inspects the query AST, not `args.status` — Strapi's schema defaults `status` to `PUBLISHED`, so reading `args.status` gives a false positive.
-- **Mutates both `args.status` and `rootQueryArgs.status`** so behaviour is robust to Apollo plugin ordering across Strapi versions.
-
-## Verifying it works
-
-With the plugin enabled, the same query should return different rows depending on the header:
+Same query, two responses, different rows for draft vs published:
 
 ```sh
 # Without header — published mode
 curl -s 'http://localhost:1337/graphql' \
   -X POST -H 'Content-Type: application/json' \
-  --data-raw '{"query":"{ portalResources(pagination: {limit: 1}) { documentId publishedAt section { id name } } }"}'
+  --data-raw '{"query":"{ articles(pagination: {limit: 1}) { documentId publishedAt category { documentId name } } }"}'
 
 # With header — draft mode
 curl -s 'http://localhost:1337/graphql' \
   -X POST -H 'Content-Type: application/json' -H 'x-include-drafts: true' \
-  --data-raw '{"query":"{ portalResources(pagination: {limit: 1}) { documentId publishedAt section { id name } } }"}'
+  --data-raw '{"query":"{ articles(pagination: {limit: 1}) { documentId publishedAt category { documentId name } } }"}'
 ```
 
-Compare `publishedAt` and the `section.id` row id between the two responses — they should differ.
+In draft mode `publishedAt` is `null` and `category` reflects the latest unpublished edits.
+
+## Why a plugin and not a middleware
+
+If you've tried solving this with a `resolversConfig` middleware first, here's what's going on under the hood.
+
+Strapi's GraphQL plugin registers an Apollo `willResolveField` hook in its bootstrap that captures `contextValue.rootQueryArgs` from the root query's args. The association resolver for relations (`builders/resolvers/association.ts`) reads `rootQueryArgs.status` to decide which side of the draft/published split to populate from. A `resolversConfig` middleware mutates args after that snapshot, so its mutation never reaches relation populates. Every relation comes back as `null` in draft mode.
+
+This plugin hooks the same `willResolveField` lifecycle, mutating both `args.status` and `rootQueryArgs.status` so populates inherit the right status. It also tolerates Apollo plugin ordering changes across Strapi versions.
 
 ## Compatibility
 
 - Strapi `5.x`
-- Node `18`, `20`, `22`
+- Node `20`, `22`, `24`
 
-## Development
+CI runs against multiple Strapi 5.x versions to catch upgrade-time contract breaks.
 
-```sh
-npm install
-npm test         # run tests once
-npm run test:watch
-npm run build    # compile to dist/
-npm run typecheck
-```
+## Contributing
+
+Contributions welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, tests, and the changeset workflow.
 
 ## Licence
 
