@@ -1,0 +1,59 @@
+{
+  "name": "strapi-plugin-include-drafts",
+  "version": "0.1.0",
+  "description": "Strapi v5 plugin that lets clients fetch draft content over GraphQL by sending a header. Solves the rootQueryArgs / association populate issue where resolversConfig middlewares can't reach relation populates.",
+  "keywords": [
+    "strapi",
+    "strapi-plugin",
+    "graphql",
+    "draft",
+    "preview",
+    "header"
+  ],
+  "strapi": {
+    "name": "include-drafts",
+    "description": "Lets clients fetch draft content over GraphQL by sending a header.",
+    "kind": "plugin",
+    "displayName": "Include Drafts"
+  },
+  "homepage": "https://github.com/BretCameron/strapi-plugin-include-drafts",
+  "bugs": {
+    "url": "https://github.com/BretCameron/strapi-plugin-include-drafts/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BretCameron/strapi-plugin-include-drafts.git"
+  },
+  "main": "strapi-server.js",
+  "files": [
+    "dist",
+    "strapi-server.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "develop": "tsc -p tsconfig.json -w",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@strapi/strapi": "^5.0.0",
+    "@strapi/typescript-utils": "^5.0.0",
+    "graphql": "^16.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^2.0.0"
+  },
+  "peerDependencies": {
+    "@strapi/strapi": "5.x"
+  },
+  "author": {
+    "name": "Bret Cameron",
+    "email": "bretcameron@gmail.com"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "MIT"
+}
