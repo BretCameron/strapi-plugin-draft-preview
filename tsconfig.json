@@ -5,7 +5,8 @@
     "rootDir": ".",
     "declaration": true,
     "strict": true,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "ignoreDeprecations": "6.0"
   },
   "include": ["server"],
   "exclude": ["node_modules/", "dist/", "**/*.test.ts", "server/__tests__"]
