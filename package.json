@@ -58,7 +58,7 @@
     "@strapi/typescript-utils": "^5.0.0",
     "@types/node": "^25.6.0",
     "@vitest/coverage-v8": "^2.1.9",
-    "better-sqlite3": "^11.3.0",
+    "better-sqlite3": "^12.9.0",
     "eslint": "^10.2.1",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.5.0",
