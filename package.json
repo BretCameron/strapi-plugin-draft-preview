@@ -1,11 +1,13 @@
 {
   "name": "strapi-plugin-include-drafts",
   "version": "0.1.0",
-  "description": "Preview unpublished Strapi v5 content from your frontend by sending one HTTP header. Drafts come back over GraphQL with all populated relations, no per-query rewrites needed.",
+  "description": "Preview unpublished Strapi v5 content from your frontend by sending one HTTP header. Works on both REST and GraphQL with all populated relations, no per-query rewrites needed.",
   "keywords": [
     "strapi",
     "strapi-plugin",
     "strapi-v5",
+    "rest",
+    "rest-api",
     "graphql",
     "draft",
     "drafts",
