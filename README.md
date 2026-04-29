@@ -7,11 +7,11 @@
 
 **Preview unpublished Strapi content from your frontend with a single HTTP header.**
 
-Drop in this plugin, send `x-include-drafts: true` from your preview environment, and every GraphQL query returns draft content, including nested relations. No per-query rewrites, no parallel staging schemas.
+Drop in this plugin, send `x-include-drafts: true` from your preview environment, and every GraphQL query returns draft content, including nested relations.
+
+No per-query rewrites, no parallel staging schemas.
 
 ## Why you'd want this
-
-You've got a Strapi v5 backend powering a Next.js, Remix, or any other frontend. Your editorial team wants to preview draft content on a staging URL before it goes live. Strapi v5 added a `status: DRAFT` GraphQL argument for exactly this. Plumbing it through every query in your codebase is painful, though, and the obvious "flip everything to draft via a middleware" approach silently breaks: every relation comes back as `null` in draft mode.
 
 This plugin makes draft preview a one-line config change:
 
@@ -22,7 +22,10 @@ module.exports = {
 };
 ```
 
-Now your staging frontend sends one header and gets drafts back. Production sends nothing and gets published content. Same queries, no branching logic.
+Now you can send one header and gets drafts back. Use-cases include:
+
+- Showing drafts in staging; hiding them in production.
+- Showing drafts to admin users; hiding them for everyone else.
 
 ## Install
 
@@ -90,9 +93,9 @@ curl -s 'http://localhost:1337/graphql' \
 
 In draft mode `publishedAt` is `null` and `category` reflects the latest unpublished edits.
 
-## Why a plugin and not a middleware
+## Why a plugin and not a middleware?
 
-If you've tried solving this with a `resolversConfig` middleware first, here's what's going on under the hood.
+If you've tried solving this with a `resolversConfig` middleware first, here's why that doesn't work.
 
 Strapi's GraphQL plugin registers an Apollo `willResolveField` hook in its bootstrap that captures `contextValue.rootQueryArgs` from the root query's args. The association resolver for relations (`builders/resolvers/association.ts`) reads `rootQueryArgs.status` to decide which side of the draft/published split to populate from. A `resolversConfig` middleware mutates args after that snapshot, so its mutation never reaches relation populates. Every relation comes back as `null` in draft mode.
 
