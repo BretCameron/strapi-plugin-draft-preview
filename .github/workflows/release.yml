@@ -27,14 +27,14 @@ jobs:
 
       # npm 11.5+ auto-detects GitHub Actions OIDC and exchanges it for a
       # short-lived publish token. Required for npm Trusted Publishing.
-      # Use corepack to install to a separate location — `npm install -g
-      # npm@latest` triggers a self-upgrade bug where the in-flight npm
-      # process can't find its own newly-rewritten internal modules.
-      - name: Install recent npm via corepack
+      # Install to a separate prefix to dodge the in-place self-upgrade bug
+      # where the running npm can't find its own internal modules after
+      # rewriting them.
+      - name: Install recent npm to a separate prefix
         run: |
-          corepack enable
-          corepack prepare npm@11.13.0 --activate
-          npm --version
+          npm install -g --prefix "$HOME/.local" npm@11.13.0
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/npm" --version
 
       - run: npm ci
 
