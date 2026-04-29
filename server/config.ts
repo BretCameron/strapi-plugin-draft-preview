@@ -21,7 +21,7 @@ export default {
       typeof config.headerName !== "string"
     ) {
       throw new Error(
-        "strapi-plugin-include-drafts: headerName must be a string",
+        "strapi-plugin-draft-preview: headerName must be a string",
       );
     }
 
@@ -30,7 +30,7 @@ export default {
       typeof config.expectedHeaderValue !== "string"
     ) {
       throw new Error(
-        "strapi-plugin-include-drafts: expectedHeaderValue must be a string",
+        "strapi-plugin-draft-preview: expectedHeaderValue must be a string",
       );
     }
 
@@ -39,7 +39,7 @@ export default {
       typeof config.statusValue !== "string"
     ) {
       throw new Error(
-        "strapi-plugin-include-drafts: statusValue must be a string",
+        "strapi-plugin-draft-preview: statusValue must be a string",
       );
     }
   },

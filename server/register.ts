@@ -4,9 +4,7 @@ import { createKoaMiddleware } from "./koa-middleware";
 import type { PluginConfig } from "./config";
 
 export default ({ strapi }: { strapi: Core.Strapi }) => {
-  const pluginConfig = strapi.config.get<PluginConfig>(
-    "plugin::include-drafts",
-  );
+  const pluginConfig = strapi.config.get<PluginConfig>("plugin::draft-preview");
 
   registerGraphqlSupport(strapi, pluginConfig);
   registerRestSupport(strapi, pluginConfig);
@@ -20,7 +18,7 @@ function registerGraphqlSupport(
 
   if (!graphql) {
     strapi.log.info(
-      "[strapi-plugin-include-drafts] @strapi/plugin-graphql is not installed; " +
+      "[strapi-plugin-draft-preview] @strapi/plugin-graphql is not installed; " +
         "skipping GraphQL support. REST support is unaffected.",
     );
     return;
