@@ -5,8 +5,8 @@ Thanks for taking an interest. This is a small plugin so the loop is short.
 ## Local setup
 
 ```sh
-git clone https://github.com/BretCameron/strapi-plugin-include-drafts
-cd strapi-plugin-include-drafts
+git clone https://github.com/BretCameron/strapi-plugin-draft-preview
+cd strapi-plugin-draft-preview
 npm install
 ```
 

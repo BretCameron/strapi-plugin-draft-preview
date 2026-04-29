@@ -8,7 +8,7 @@
  * node_modules.
  *
  * This script creates a symlink at `<root>/node_modules/<pkgName>` ->
- * `<root>`, so `require("strapi-plugin-include-drafts/...")` resolves
+ * `<root>`, so `require("strapi-plugin-draft-preview/...")` resolves
  * even when called from a sibling like `@strapi/core`. The symlink is
  * idempotent — re-running is a no-op.
  *

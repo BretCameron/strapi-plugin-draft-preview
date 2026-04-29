@@ -1,8 +1,8 @@
-# strapi-plugin-include-drafts
+# strapi-plugin-draft-preview
 
-[![CI](https://github.com/BretCameron/strapi-plugin-include-drafts/actions/workflows/ci.yml/badge.svg)](https://github.com/BretCameron/strapi-plugin-include-drafts/actions/workflows/ci.yml)
-[![npm version](https://img.shields.io/npm/v/strapi-plugin-include-drafts.svg)](https://www.npmjs.com/package/strapi-plugin-include-drafts)
-[![npm downloads](https://img.shields.io/npm/dm/strapi-plugin-include-drafts.svg)](https://www.npmjs.com/package/strapi-plugin-include-drafts)
+[![CI](https://github.com/BretCameron/strapi-plugin-draft-preview/actions/workflows/ci.yml/badge.svg)](https://github.com/BretCameron/strapi-plugin-draft-preview/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/strapi-plugin-draft-preview.svg)](https://www.npmjs.com/package/strapi-plugin-draft-preview)
+[![npm downloads](https://img.shields.io/npm/dm/strapi-plugin-draft-preview.svg)](https://www.npmjs.com/package/strapi-plugin-draft-preview)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 **Preview unpublished Strapi content from your frontend with a single HTTP header.**
@@ -18,7 +18,7 @@ This plugin makes draft preview a one-line config change:
 ```js
 // config/plugins.js
 module.exports = {
-  "include-drafts": { enabled: true },
+  "draft-preview": { enabled: true },
 };
 ```
 
@@ -30,13 +30,13 @@ Now you can send one header and gets drafts back. Use-cases include:
 ## Install
 
 ```sh
-npm install strapi-plugin-include-drafts
+npm install strapi-plugin-draft-preview
 ```
 
 ```js
 // config/plugins.js
 module.exports = {
-  "include-drafts": { enabled: true },
+  "draft-preview": { enabled: true },
 };
 ```
 
@@ -64,7 +64,7 @@ const draftHeaderLink = setContext((_, { headers }) => ({
 
 ```js
 module.exports = {
-  "include-drafts": {
+  "draft-preview": {
     enabled: true,
     config: {
       headerName: "x-strapi-preview", // default: "x-include-drafts"

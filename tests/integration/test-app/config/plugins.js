@@ -14,7 +14,7 @@ module.exports = () => ({
       playgroundAlways: false,
     },
   },
-  "include-drafts": {
+  "draft-preview": {
     enabled: true,
   },
 });

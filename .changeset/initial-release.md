@@ -1,5 +1,5 @@
 ---
-"strapi-plugin-include-drafts": minor
+"strapi-plugin-draft-preview": minor
 ---
 
 Initial release. Strapi v5 plugin that injects `status: "draft"` into GraphQL queries when an HTTP header is set, working around the `rootQueryArgs` populate quirk that breaks resolversConfig middleware approaches.

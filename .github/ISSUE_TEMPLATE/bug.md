@@ -25,7 +25,7 @@ Plugin config:
 
 ```js
 // config/plugins.js
-"include-drafts": {
+"draft-preview": {
   enabled: true,
   config: {
     // ...
@@ -35,7 +35,7 @@ Plugin config:
 
 ## Environment
 
-- `strapi-plugin-include-drafts` version:
+- `strapi-plugin-draft-preview` version:
 - `@strapi/strapi` version:
 - `@strapi/plugin-graphql` version:
 - Node version:

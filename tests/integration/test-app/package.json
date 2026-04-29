@@ -1,5 +1,5 @@
 {
-  "name": "include-drafts-test-app",
+  "name": "draft-preview-test-app",
   "version": "0.0.0",
   "private": true,
   "description": "Minimal Strapi app used by the plugin's integration tests. Resolves dependencies from the plugin root's node_modules — does NOT have its own node_modules.",
@@ -8,6 +8,6 @@
     "@strapi/plugin-users-permissions": "*",
     "@strapi/strapi": "*",
     "better-sqlite3": "*",
-    "strapi-plugin-include-drafts": "*"
+    "strapi-plugin-draft-preview": "*"
   }
 }

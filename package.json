@@ -1,5 +1,5 @@
 {
-  "name": "strapi-plugin-include-drafts",
+  "name": "strapi-plugin-draft-preview",
   "version": "0.1.0",
   "description": "Preview unpublished Strapi v5 content from your frontend by sending one HTTP header. Works on both REST and GraphQL with all populated relations, no per-query rewrites needed.",
   "keywords": [
@@ -22,18 +22,18 @@
     "apollo-server"
   ],
   "strapi": {
-    "name": "include-drafts",
-    "description": "Preview drafts over GraphQL by sending an HTTP header.",
+    "name": "draft-preview",
+    "description": "Preview unpublished Strapi content from your frontend with one HTTP header.",
     "kind": "plugin",
-    "displayName": "Include Drafts"
+    "displayName": "Draft Preview"
   },
-  "homepage": "https://github.com/BretCameron/strapi-plugin-include-drafts",
+  "homepage": "https://github.com/BretCameron/strapi-plugin-draft-preview",
   "bugs": {
-    "url": "https://github.com/BretCameron/strapi-plugin-include-drafts/issues"
+    "url": "https://github.com/BretCameron/strapi-plugin-draft-preview/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/BretCameron/strapi-plugin-include-drafts.git"
+    "url": "git+https://github.com/BretCameron/strapi-plugin-draft-preview.git"
   },
   "main": "strapi-server.js",
   "files": [
