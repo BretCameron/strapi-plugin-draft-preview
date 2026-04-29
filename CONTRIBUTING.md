@@ -51,11 +51,11 @@ Chore-only or docs-only changes don't need a changeset.
 
 ## What "watertight" means here
 
-The plugin is small but takes load-bearing dependencies on Strapi internals (`rootQueryArgs`, the association resolver inheritance pattern). Three layers of tests guard against breakage:
+The plugin is small but takes load-bearing dependencies on Strapi internals (the GraphQL `rootQueryArgs` snapshot, the association resolver inheritance pattern, and the REST controller's `status` query handling). Three layers of tests guard against breakage:
 
-1. **Unit tests** (`server/__tests__/`) cover the pure decision logic — what the plugin does given hypothetical inputs.
+1. **Unit tests** (`server/__tests__/`) cover the pure decision logic for both the Apollo plugin and the Koa middleware — what each does given hypothetical inputs.
 2. **Contract tests** (`server/__tests__/strapi-contract.test.ts`) read the installed `@strapi/plugin-graphql` source and assert the symbols we depend on still exist. Catches breaking upgrades cheaply.
-3. **Integration tests** (`tests/integration/`) boot a real Strapi, seed draft+published content, hit `/graphql` with and without the header, and assert the response actually changes the way we expect.
+3. **Integration tests** (`tests/integration/`) boot a real Strapi, seed draft+published content, and hit both `/graphql` and `/api/*` REST endpoints with and without the header. They assert the responses actually change the way we expect on both transports.
 
 CI runs the integration suite against multiple Strapi versions in matrix.
 
