@@ -21,9 +21,14 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           registry-url: "https://registry.npmjs.org"
+
+      # npm 11.5+ auto-detects GitHub Actions OIDC and exchanges it for a
+      # short-lived publish token. Required for npm Trusted Publishing.
+      - name: Upgrade npm
+        run: npm install -g npm@latest
 
       - run: npm ci
 
@@ -38,4 +43,5 @@ jobs:
           title: "chore: version packages"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # No NPM_TOKEN — Trusted Publisher (OIDC) configured on npm.
+          NPM_CONFIG_PROVENANCE: "true"
