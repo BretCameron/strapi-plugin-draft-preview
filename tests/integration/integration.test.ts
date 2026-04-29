@@ -11,6 +11,7 @@ const cjsRequire = createRequire(__filename);
 const APP_DIR = resolve(__dirname, "test-app");
 const PORT = 1338;
 const ENDPOINT = `http://127.0.0.1:${PORT}/graphql`;
+const REST_BASE = `http://127.0.0.1:${PORT}/api`;
 
 let strapiInstance: any;
 
@@ -52,6 +53,16 @@ const seedData = async () => {
   });
 
   return { articleDocumentId: articleDoc.documentId };
+};
+
+const rest = async (path: string, headers: Record<string, string> = {}) => {
+  const res = await fetch(`${REST_BASE}${path}`, { headers });
+
+  if (!res.ok) {
+    throw new Error(`REST ${res.status}: ${await res.text()}`);
+  }
+
+  return (await res.json()) as { data: any };
 };
 
 const gql = async (query: string, headers: Record<string, string> = {}) => {
@@ -206,6 +217,58 @@ describe("integration: x-include-drafts header", () => {
     expect(data.articles.length).toBeGreaterThan(0);
 
     for (const article of data.articles) {
+      expect(article.publishedAt).toBeNull();
+      expect(article.section).not.toBeNull();
+    }
+  });
+});
+
+describe("integration: x-include-drafts header (REST)", () => {
+  it("returns published article and section without the header", async () => {
+    const { data } = await rest(
+      `/articles/${articleDocumentId}?populate=section`,
+    );
+
+    expect(data.publishedAt).not.toBeNull();
+    expect(data.title).toBe("Article (draft v1)");
+    expect(data.section).not.toBeNull();
+    expect(data.section.name).toBe("Section (draft v1)");
+  });
+
+  it("returns draft article and DRAFT section when the header is set", async () => {
+    const { data } = await rest(
+      `/articles/${articleDocumentId}?populate=section`,
+      { "x-include-drafts": "true" },
+    );
+
+    expect(data.publishedAt).toBeNull();
+    expect(data.title).toBe("Article (draft v2)");
+    expect(data.section).not.toBeNull();
+    expect(data.section.name).toBe("Section (draft v2)");
+  });
+
+  it("honours an explicit ?status=published in the URL", async () => {
+    const { data } = await rest(
+      `/articles/${articleDocumentId}?populate=section&status=published`,
+      { "x-include-drafts": "true" },
+    );
+
+    expect(data.publishedAt).not.toBeNull();
+    expect(data.title).toBe("Article (draft v1)");
+  });
+
+  it("returns drafts on a list endpoint with the header", async () => {
+    const { data } = await rest(
+      `/articles?populate=section&pagination[limit]=5`,
+      {
+        "x-include-drafts": "true",
+      },
+    );
+
+    expect(Array.isArray(data)).toBe(true);
+    expect(data.length).toBeGreaterThan(0);
+
+    for (const article of data) {
       expect(article.publishedAt).toBeNull();
       expect(article.section).not.toBeNull();
     }

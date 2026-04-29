@@ -7,9 +7,9 @@
 
 **Preview unpublished Strapi content from your frontend with a single HTTP header.**
 
-Drop in this plugin, send `x-include-drafts: true` from your preview environment, and every GraphQL query returns draft content, including nested relations.
+Drop in this plugin, send `x-include-drafts: true` from your preview environment, and every REST or GraphQL request returns draft content, including nested relations.
 
-No per-query rewrites, no parallel staging schemas.
+No per-query rewrites, no parallel staging schemas. Works the same way over both APIs.
 
 ## Why you'd want this
 
@@ -55,10 +55,10 @@ const draftHeaderLink = setContext((_, { headers }) => ({
 
 ## What you get
 
-- Drafts from every built-in resolver: list, single, and `*_connection`.
-- Relations populate correctly in draft mode. This is the main reason to use a plugin instead of a middleware — explained below.
-- Custom resolvers and non-draft content types are left alone. Only fields that declare a `status` arg are touched.
-- Explicit query intent wins. A query passing `status: PUBLISHED` ignores the header.
+- **REST**: every `GET /api/...` request returns drafts when the header is set. Works with `populate=*` so relations come through.
+- **GraphQL**: drafts from every built-in resolver (list, single, `*_connection`), with populated relations.
+- Custom resolvers and non-draft content types are left alone.
+- Explicit intent wins: a query passing `status: PUBLISHED` (GraphQL) or `?status=published` (REST) ignores the header.
 
 ## Configuration (all optional)
 
@@ -77,7 +77,18 @@ module.exports = {
 
 ## Verify it works
 
-Same query, two responses, different rows for draft vs published:
+Same request, two responses, different rows for draft vs published. REST:
+
+```sh
+# Without header — published mode
+curl -s 'http://localhost:1337/api/articles/<documentId>?populate=category'
+
+# With header — draft mode
+curl -s -H 'x-include-drafts: true' \
+  'http://localhost:1337/api/articles/<documentId>?populate=category'
+```
+
+GraphQL:
 
 ```sh
 # Without header — published mode
@@ -93,13 +104,11 @@ curl -s 'http://localhost:1337/graphql' \
 
 In draft mode `publishedAt` is `null` and `category` reflects the latest unpublished edits.
 
-## Why a plugin and not a middleware?
+## How it works
 
-If you've tried solving this with a `resolversConfig` middleware first, here's why that doesn't work.
+**REST** is the simple half: a Koa middleware reads the header on `/api/*` requests and sets `ctx.query.status = "draft"` before the controller runs. Strapi's REST controllers cascade `status` to relation populates by default, so nothing else is needed.
 
-Strapi's GraphQL plugin registers an Apollo `willResolveField` hook in its bootstrap that captures `contextValue.rootQueryArgs` from the root query's args. The association resolver for relations (`builders/resolvers/association.ts`) reads `rootQueryArgs.status` to decide which side of the draft/published split to populate from. A `resolversConfig` middleware mutates args after that snapshot, so its mutation never reaches relation populates. Every relation comes back as `null` in draft mode.
-
-This plugin hooks the same `willResolveField` lifecycle, mutating both `args.status` and `rootQueryArgs.status` so populates inherit the right status. It also tolerates Apollo plugin ordering changes across Strapi versions.
+**GraphQL** is more involved. Strapi's GraphQL plugin registers an Apollo `willResolveField` hook that captures `contextValue.rootQueryArgs` from the root query's args. The association resolver for relations reads `rootQueryArgs.status` to decide which side of the draft/published split to populate from. A `resolversConfig` middleware mutates args _after_ that snapshot, so its mutation never reaches relation populates — every relation comes back as `null` in draft mode. This plugin hooks the same `willResolveField` lifecycle, mutating both `args.status` and `rootQueryArgs.status` so populates inherit the right status. Robust to Apollo plugin ordering changes across Strapi versions.
 
 ## Compatibility
 
