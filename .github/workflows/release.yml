@@ -27,8 +27,14 @@ jobs:
 
       # npm 11.5+ auto-detects GitHub Actions OIDC and exchanges it for a
       # short-lived publish token. Required for npm Trusted Publishing.
-      - name: Upgrade npm
-        run: npm install -g npm@latest
+      # Use corepack to install to a separate location — `npm install -g
+      # npm@latest` triggers a self-upgrade bug where the in-flight npm
+      # process can't find its own newly-rewritten internal modules.
+      - name: Install recent npm via corepack
+        run: |
+          corepack enable
+          corepack prepare npm@11.13.0 --activate
+          npm --version
 
       - run: npm ci
 
