@@ -292,3 +292,58 @@ Token leak in develop is recoverable: rotate `preview-develop` from the admin pa
 For full leak prevention against authenticated callers passing `?status=draft` directly, add `guardNativeStatus: true` and lock down public-role `find` permissions on draft-publish content types.
 
 **Implementation note:** the exact path for reading the token name (`ctx.state.auth.credentials.name`) needs verification against Strapi v5's API token strategy during implementation. If the path differs, update the worked example and the `requireAuth` built-in check accordingly.
+
+## Worked example — specific user gets drafts in prod
+
+Single Strapi running in `NODE_ENV=production`. One user (e.g. a marketing editor) needs draft access; everyone else, including other authenticated users, must not see drafts via *any* path.
+
+Three flavours depending on where the user lives:
+
+### Strapi admin user
+
+```js
+"draft-preview": {
+  enabled: true,
+  config: {
+    requireAuth: "admin",
+    guardNativeStatus: true,
+  },
+},
+```
+Any admin-panel user calling `/api/*` with their admin JWT gets drafts. Cookie-style admin sessions are out of scope; admin must call with a Bearer token.
+
+### Users-permissions user (role-based)
+
+```js
+"draft-preview": {
+  enabled: true,
+  config: {
+    authorize: (ctx) => ctx.state.user?.role?.name === "Editor",
+    guardNativeStatus: true,
+  },
+},
+```
+Pin to a single identity instead of a role: `ctx.state.user?.email === "alice@example.com"`.
+
+### Specific API token
+
+```js
+"draft-preview": {
+  enabled: true,
+  config: {
+    authorize: (ctx) =>
+      ctx.state.auth?.credentials?.name === "alice-preview",
+    guardNativeStatus: true,
+  },
+},
+```
+
+### Coverage table (applies to all three flavours)
+
+| Caller | `?status=draft` (native) | `x-include-drafts` header |
+|---|---|---|
+| Matching user | drafts | drafts |
+| Non-matching authenticated user | rewritten → published | silent fallback → published |
+| Anonymous | rewritten → published | silent fallback → published |
+
+Both bypass paths run through the same gate. `guardNativeStatus: true` is the load-bearing flag — without it the native path leaks; with it, drafts are genuinely private.
