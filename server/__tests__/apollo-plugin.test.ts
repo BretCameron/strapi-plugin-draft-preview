@@ -12,6 +12,7 @@ const buildParams = (overrides: {
   args?: Record<string, unknown>;
   acceptsStatus?: boolean;
   explicitStatus?: boolean;
+  explicitStatusValue?: "DRAFT" | "PUBLISHED";
   rootQueryArgs?: Record<string, unknown> | null;
 }): Params => {
   const {
@@ -22,6 +23,7 @@ const buildParams = (overrides: {
     args = {},
     acceptsStatus = true,
     explicitStatus = false,
+    explicitStatusValue,
     rootQueryArgs = {},
   } = overrides;
 
@@ -29,9 +31,17 @@ const buildParams = (overrides: {
     ? [{ name: "status" }, { name: "filters" }]
     : [{ name: "filters" }];
 
-  const argumentNodes = explicitStatus
-    ? [{ name: { value: "status" }, value: { kind: "EnumValue", value: "PUBLISHED" } }]
-    : [];
+  const argumentNodes =
+    explicitStatus || explicitStatusValue
+      ? [
+          {
+            name: { value: "status" },
+            value: explicitStatusValue
+              ? { kind: "EnumValue", value: explicitStatusValue }
+              : { kind: "EnumValue", value: "PUBLISHED" },
+          },
+        ]
+      : [];
 
   return {
     source,
@@ -206,6 +216,48 @@ describe("applyDraftStatus", () => {
       const allowing: PluginConfig = { ...config, authorize: () => true };
       const params = buildParams({ header: "true" });
       await applyDraftStatus(params, allowing);
+      expect(params.args.status).toBe("draft");
+    } finally {
+      process.env.NODE_ENV = original;
+    }
+  });
+
+  it("explicit status: DRAFT passes through when gate allows", async () => {
+    const guarded: PluginConfig = { ...config, guardNativeStatus: true };
+    const params = buildParams({
+      explicitStatusValue: "DRAFT",
+      args: { status: "draft" },
+    });
+    await applyDraftStatus(params, guarded);
+    expect(params.args.status).toBe("draft");
+  });
+
+  it("explicit status: DRAFT rewritten to published on deny when guardNativeStatus is set", async () => {
+    const original = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      const guarded: PluginConfig = { ...config, guardNativeStatus: true };
+      const params = buildParams({
+        explicitStatusValue: "DRAFT",
+        args: { status: "draft" },
+      });
+      await applyDraftStatus(params, guarded);
+      expect(params.args.status).toBe("published");
+      expect(params.contextValue.rootQueryArgs?.status).toBe("published");
+    } finally {
+      process.env.NODE_ENV = original;
+    }
+  });
+
+  it("explicit status: DRAFT left alone on deny without guardNativeStatus", async () => {
+    const original = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      const params = buildParams({
+        explicitStatusValue: "DRAFT",
+        args: { status: "draft" },
+      });
+      await applyDraftStatus(params, config);
       expect(params.args.status).toBe("draft");
     } finally {
       process.env.NODE_ENV = original;

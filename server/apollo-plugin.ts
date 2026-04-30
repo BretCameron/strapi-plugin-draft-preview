@@ -69,6 +69,8 @@ export async function applyDraftStatus(
     (a) => a.name?.value === "status",
   );
   const explicitStatusValue = explicitStatusArg?.value?.value;
+  // Note: GraphQL VariableNode args (e.g. `status: $s`) carry no value
+  // here, so they're treated as "no explicit status" — header path applies.
 
   const explicitlyDraft = explicitStatusValue === "DRAFT";
   const explicitlyPublished = explicitStatusValue === "PUBLISHED";
