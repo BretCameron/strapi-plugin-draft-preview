@@ -6,9 +6,23 @@ import type { PluginConfig } from "./config";
 export default ({ strapi }: { strapi: Core.Strapi }) => {
   const pluginConfig = strapi.config.get<PluginConfig>("plugin::draft-preview");
 
+  warnIfProductionWithoutGate(strapi, pluginConfig);
   registerGraphqlSupport(strapi, pluginConfig);
   registerRestSupport(strapi, pluginConfig);
 };
+
+function warnIfProductionWithoutGate(
+  strapi: Core.Strapi,
+  pluginConfig: PluginConfig,
+) {
+  if (process.env.NODE_ENV !== "production") return;
+  if (pluginConfig.authorize || pluginConfig.requireAuth) return;
+
+  strapi.log.warn(
+    "[draft-preview] running in production with no auth gate; preview header will be ignored. " +
+      "Set 'authorize' or 'requireAuth' in plugin config, or use 'authorize: () => true' to keep v1.0.0 behaviour.",
+  );
+}
 
 function registerGraphqlSupport(
   strapi: Core.Strapi,
