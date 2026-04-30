@@ -36,3 +36,22 @@ export function checkBuiltInAuth(
 
   return strategyName === requireAuth;
 }
+
+export async function runGate(
+  ctx: AuthGateContext,
+  config: PluginConfig,
+): Promise<boolean> {
+  if (config.authorize) {
+    try {
+      return Boolean(await config.authorize(ctx));
+    } catch {
+      return false;
+    }
+  }
+
+  if (config.requireAuth) {
+    return checkBuiltInAuth(ctx, config.requireAuth);
+  }
+
+  return process.env.NODE_ENV !== "production";
+}
