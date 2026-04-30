@@ -23,5 +23,8 @@ export default defineConfig({
         inline: [/^@strapi\//],
       },
     },
+    env: {
+      NODE_ENV: "test",
+    },
   },
 });
