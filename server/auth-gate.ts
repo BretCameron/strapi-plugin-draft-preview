@@ -1,4 +1,8 @@
-import type { AuthGateContext, PluginConfig } from "./config";
+import type {
+  AuthGateContext,
+  PluginConfig,
+  RequireAuthOption,
+} from "./config";
 
 export type { AuthGateContext } from "./config";
 
@@ -16,4 +20,19 @@ export function detectRestSignals(
   const nativeRest = ctx.query.status === config.statusValue;
 
   return { header, nativeRest };
+}
+
+export function checkBuiltInAuth(
+  ctx: AuthGateContext,
+  requireAuth: RequireAuthOption | undefined,
+): boolean {
+  if (!requireAuth) return false;
+
+  const strategyName = ctx.state?.auth?.strategy?.name;
+
+  if (requireAuth === true) {
+    return strategyName === "api-token" || strategyName === "admin";
+  }
+
+  return strategyName === requireAuth;
 }

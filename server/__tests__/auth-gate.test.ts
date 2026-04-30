@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectRestSignals } from "../auth-gate";
+import { checkBuiltInAuth, detectRestSignals } from "../auth-gate";
 import { defaultConfig, type PluginConfig } from "../config";
 
 const buildCtx = (overrides: {
@@ -52,5 +52,49 @@ describe("detectRestSignals", () => {
     });
     const signals = detectRestSignals(ctx, defaultConfig);
     expect(signals).toEqual({ header: true, nativeRest: true });
+  });
+});
+
+const ctxWithStrategy = (name?: string) => ({
+  request: { header: {} },
+  state: name ? { auth: { strategy: { name } } } : { auth: undefined },
+});
+
+describe("checkBuiltInAuth", () => {
+  it("returns false when requireAuth is false/undefined", () => {
+    expect(checkBuiltInAuth(ctxWithStrategy("api-token"), false)).toBe(false);
+    expect(checkBuiltInAuth(ctxWithStrategy("api-token"), undefined)).toBe(
+      false,
+    );
+  });
+
+  it("requireAuth=true allows api-token", () => {
+    expect(checkBuiltInAuth(ctxWithStrategy("api-token"), true)).toBe(true);
+  });
+
+  it("requireAuth=true allows admin", () => {
+    expect(checkBuiltInAuth(ctxWithStrategy("admin"), true)).toBe(true);
+  });
+
+  it("requireAuth=true denies users-permissions", () => {
+    expect(checkBuiltInAuth(ctxWithStrategy("users-permissions"), true)).toBe(
+      false,
+    );
+  });
+
+  it("requireAuth=true denies unauthenticated", () => {
+    expect(checkBuiltInAuth(ctxWithStrategy(undefined), true)).toBe(false);
+  });
+
+  it('requireAuth="api-token" allows only api-token', () => {
+    expect(checkBuiltInAuth(ctxWithStrategy("api-token"), "api-token")).toBe(
+      true,
+    );
+    expect(checkBuiltInAuth(ctxWithStrategy("admin"), "api-token")).toBe(false);
+  });
+
+  it('requireAuth="admin" allows only admin', () => {
+    expect(checkBuiltInAuth(ctxWithStrategy("admin"), "admin")).toBe(true);
+    expect(checkBuiltInAuth(ctxWithStrategy("api-token"), "admin")).toBe(false);
   });
 });
