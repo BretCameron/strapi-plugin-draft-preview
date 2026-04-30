@@ -1,3 +1,9 @@
+import type { Context as KoaContext } from "koa";
+
+/**
+ * Internal contract — what `runGate` and friends actually read from the
+ * request. Kept narrow so unit tests can satisfy it with small mocks.
+ */
 export interface AuthGateContext {
   request: { header: Record<string, string | string[] | undefined> };
   state?: {
@@ -7,6 +13,27 @@ export interface AuthGateContext {
     };
   };
 }
+
+/**
+ * Public contract — what users see in their `authorize(ctx)` predicate.
+ * Extends Koa's `Context` (so users get `ctx.request`, `ctx.headers`,
+ * `ctx.cookies`, `ctx.ip`, etc.) and types `state.auth` / `state.user`
+ * with the shapes Strapi populates.
+ */
+export type DraftPreviewContext = KoaContext & {
+  state: KoaContext["state"] & {
+    auth?: {
+      strategy?: { name?: string };
+      credentials?: { name?: string; [key: string]: unknown };
+    };
+    user?: {
+      id?: number | string;
+      email?: string;
+      role?: { name?: string; [key: string]: unknown };
+      [key: string]: unknown;
+    };
+  };
+};
 
 export type RequireAuthOption = true | false | "api-token" | "admin";
 
@@ -19,9 +46,10 @@ export interface PluginConfig {
   statusValue: string;
   /**
    * Custom authorisation predicate. If provided, its return value is the
-   * gate's decision. Throwing → deny.
+   * gate's decision. Throwing → deny. Receives a Strapi-flavoured Koa
+   * context with `state.auth` and `state.user` typed for IDE autocomplete.
    */
-  authorize?: (ctx: AuthGateContext) => boolean | Promise<boolean>;
+  authorize?: (ctx: DraftPreviewContext) => boolean | Promise<boolean>;
   /**
    * Built-in auth check. `true` ≡ "api-token OR admin". String forms
    * pin to one strategy. Falsy/unset → fall through to env gate.

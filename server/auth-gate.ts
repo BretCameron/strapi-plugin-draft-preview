@@ -1,10 +1,11 @@
 import type {
   AuthGateContext,
+  DraftPreviewContext,
   PluginConfig,
   RequireAuthOption,
 } from "./config";
 
-export type { AuthGateContext } from "./config";
+export type { AuthGateContext, DraftPreviewContext } from "./config";
 
 interface RestCtx {
   request: { header: Record<string, string | string[] | undefined> };
@@ -51,7 +52,15 @@ export async function runGate(
 ): Promise<boolean> {
   if (config.authorize) {
     try {
-      return Boolean(await config.authorize(ctx));
+      // The user's `authorize` callback is typed against the wider
+      // `DraftPreviewContext` (Koa context + Strapi state) so users get
+      // IDE autocomplete in their predicates. Internally we pass the
+      // narrower `AuthGateContext`; production callers always pass real
+      // Koa contexts that satisfy the wider type. The `unknown` bridge
+      // is the safe TS idiom for this — no `any` involved.
+      return Boolean(
+        await config.authorize(ctx as unknown as DraftPreviewContext),
+      );
     } catch {
       return false;
     }
