@@ -16,5 +16,8 @@ module.exports = () => ({
   },
   "draft-preview": {
     enabled: true,
+    ...(process.env.DRAFT_PREVIEW_REQUIRE_AUTH
+      ? { config: { requireAuth: true } }
+      : {}),
   },
 });

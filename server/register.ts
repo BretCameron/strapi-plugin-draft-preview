@@ -1,7 +1,7 @@
 import type { Core } from "@strapi/strapi";
 import { createApolloPlugin } from "./apollo-plugin";
 import { createKoaMiddleware } from "./koa-middleware";
-import type { PluginConfig } from "./config";
+import type { AuthGateContext, PluginConfig, RequireAuthOption } from "./config";
 
 export default ({ strapi }: { strapi: Core.Strapi }) => {
   const pluginConfig = strapi.config.get<PluginConfig>("plugin::draft-preview");
@@ -54,10 +54,90 @@ function registerGraphqlSupport(
 function registerRestSupport(strapi: Core.Strapi, pluginConfig: PluginConfig) {
   const apiPrefix = strapi.config.get<string>("api.rest.prefix") ?? "/api";
 
-  const middleware = createKoaMiddleware({ config: pluginConfig, apiPrefix });
+  // Our Koa middleware runs at the global app level, before Strapi's
+  // per-route `authenticate` middleware populates `ctx.state.auth`.
+  // When `requireAuth` is set and no `authorize` override is provided,
+  // we translate `requireAuth` into an `authorize` callback that directly
+  // checks the Bearer token via Strapi's api-token service — bypassing
+  // the need for a pre-populated `ctx.state.auth`.
+  const config =
+    pluginConfig.requireAuth && !pluginConfig.authorize
+      ? {
+          ...pluginConfig,
+          authorize: buildRequireAuthAuthorize(strapi, pluginConfig.requireAuth),
+        }
+      : pluginConfig;
+
+  const middleware = createKoaMiddleware({ config, apiPrefix });
 
   // strapi.server.app is a Koa app; .use prepends to the middleware stack.
   // Registering here means our middleware runs before route handlers but
   // after Strapi's own request-parsing chain.
   (strapi.server.app as { use: (mw: unknown) => void }).use(middleware);
+}
+
+/**
+ * Builds an `authorize` callback that honours `requireAuth` at the global
+ * Koa middleware level, where `ctx.state.auth` is not yet populated.
+ *
+ * Priority:
+ *   1. `ctx.state.auth.strategy.name` — works if auth is already populated
+ *      (e.g. if architecture changes to run auth before our middleware).
+ *   2. Direct Bearer-token lookup via Strapi's api-token service — the
+ *      production path at the global middleware level.
+ */
+function buildRequireAuthAuthorize(
+  strapi: Core.Strapi,
+  requireAuth: RequireAuthOption,
+): (ctx: AuthGateContext) => Promise<boolean> {
+  return async (ctx: AuthGateContext) => {
+    // Fast path: auth already on context (future-proof).
+    const strategyName = ctx.state?.auth?.strategy?.name;
+
+    if (strategyName) {
+      if (requireAuth === true) {
+        return strategyName === "api-token" || strategyName === "admin";
+      }
+
+      return strategyName === requireAuth;
+    }
+
+    // Slow path: inspect the request directly.
+    // Extract Bearer token and validate via Strapi's api-token service.
+    const authorization = ctx.request.header["authorization"];
+    const authHeader = Array.isArray(authorization)
+      ? authorization[0]
+      : authorization;
+
+    if (!authHeader) return false;
+
+    const parts = authHeader.split(/\s+/);
+
+    if (parts[0]?.toLowerCase() !== "bearer" || parts.length !== 2) {
+      return false;
+    }
+
+    const rawToken = parts[1];
+
+    if (requireAuth === "admin") {
+      // API tokens are never admin sessions; deny.
+      return false;
+    }
+
+    // requireAuth is true or "api-token" — validate the api token.
+    try {
+      const apiTokenService = strapi.service("admin::api-token") as {
+        getBy: (q: Record<string, unknown>) => Promise<unknown>;
+        hash: (t: string) => string;
+      };
+
+      const apiToken = await apiTokenService.getBy({
+        accessKey: apiTokenService.hash(rawToken),
+      });
+
+      return Boolean(apiToken);
+    } catch {
+      return false;
+    }
+  };
 }
