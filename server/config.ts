@@ -1,4 +1,4 @@
-export type AuthGateContext = {
+export interface AuthGateContext {
   request: { header: Record<string, string | string[] | undefined> };
   state?: {
     auth?: {
@@ -6,7 +6,7 @@ export type AuthGateContext = {
       credentials?: unknown;
     };
   };
-};
+}
 
 export type RequireAuthOption = true | false | "api-token" | "admin";
 

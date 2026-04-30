@@ -38,7 +38,7 @@ export function buildRequireAuthAuthorize(
     }
 
     // Slow path: inspect the request directly.
-    const authorization = ctx.request.header["authorization"];
+    const authorization = ctx.request.header.authorization;
     const authHeader = Array.isArray(authorization)
       ? authorization[0]
       : authorization;

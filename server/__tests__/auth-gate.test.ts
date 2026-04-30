@@ -124,7 +124,7 @@ describe("runGate", () => {
   it("awaits an async authorize", async () => {
     const result = await runGate(baseCtx, {
       ...defaultConfig,
-      authorize: async () => true,
+      authorize: () => Promise.resolve(true),
     });
     expect(result).toBe(true);
   });
