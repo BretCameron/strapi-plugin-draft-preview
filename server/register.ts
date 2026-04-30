@@ -120,14 +120,19 @@ function buildRequireAuthAuthorize(
     const rawToken = parts[1];
 
     if (requireAuth === "admin") {
-      // API tokens are never admin sessions; deny.
+      // At the global Koa level, admin JWTs and API tokens are
+      // indistinguishable without decoding the Bearer payload. The
+      // fast path above (ctx.state.auth.strategy.name) handles admin
+      // when auth has run; here we conservatively deny.
       return false;
     }
 
     // requireAuth is true or "api-token" — validate the api token.
     try {
       const apiTokenService = strapi.service("admin::api-token") as {
-        getBy: (q: Record<string, unknown>) => Promise<unknown>;
+        getBy: (q: Record<string, unknown>) => Promise<{
+          expiresAt?: string | Date | null;
+        } | null>;
         hash: (t: string) => string;
       };
 
@@ -135,7 +140,17 @@ function buildRequireAuthAuthorize(
         accessKey: apiTokenService.hash(rawToken),
       });
 
-      return Boolean(apiToken);
+      if (!apiToken) return false;
+
+      // Match Strapi's own api-token strategy: reject expired tokens.
+      if (
+        apiToken.expiresAt != null &&
+        new Date(apiToken.expiresAt) < new Date()
+      ) {
+        return false;
+      }
+
+      return true;
     } catch {
       return false;
     }
