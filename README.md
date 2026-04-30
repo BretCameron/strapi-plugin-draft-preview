@@ -67,17 +67,17 @@ const draftHeaderLink = setContext((_, { headers }) => ({
 
 ## Security
 
-The header is a *request* to honour, not a *demand*. Whether the plugin honours it is decided by the auth gate, in this priority order:
+The header is a _request_ to honour, not a _demand_. Whether the plugin honours it is decided by the auth gate, in this priority order:
 
 1. **`authorize`** — your custom predicate. If you set it, its return value is the answer.
 2. **`requireAuth`** — built-in check. `true` allows callers authenticated via API token. String forms (`"api-token"`) pin to one strategy.
 3. **Env gate (default)** — denies in `NODE_ENV=production`, allows otherwise.
 
-| Caller | `?status=draft` (native) | `x-include-drafts` header |
-|---|---|---|
-| Allowed by gate | drafts | drafts |
+| Caller                                               | `?status=draft` (native)    | `x-include-drafts` header   |
+| ---------------------------------------------------- | --------------------------- | --------------------------- |
+| Allowed by gate                                      | drafts                      | drafts                      |
 | Denied by gate, `guardNativeStatus: false` (default) | drafts (Strapi serves them) | silent fallback → published |
-| Denied by gate, `guardNativeStatus: true` | rewritten → published | silent fallback → published |
+| Denied by gate, `guardNativeStatus: true`            | rewritten → published       | silent fallback → published |
 
 ### Use case 1: staging only, prod hidden
 
@@ -136,8 +136,8 @@ module.exports = {
     config: {
       // Header behaviour
       headerName: "x-strapi-preview", // default: "x-include-drafts"
-      expectedHeaderValue: "1",       // default: "true"
-      statusValue: "draft",           // default: "draft"
+      expectedHeaderValue: "1", // default: "true"
+      statusValue: "draft", // default: "draft"
 
       // Auth gate (new in v2) — priority order:
       authorize: (ctx) => ctx.state.user?.role?.name === "Editor", // 1
@@ -188,7 +188,7 @@ In draft mode `publishedAt` is `null` and `category` reflects the latest unpubli
 
 A global Koa middleware reads the header on `/api/*` requests and sets `ctx.query.status = "draft"` before the controller runs. Strapi's REST controllers cascade `status` to relation populates by default, so nothing else is needed for the basic header path.
 
-For `requireAuth`, the REST middleware runs at the global app level — *before* Strapi's per-route `authenticate` strategy populates `ctx.state.auth`. To honour `requireAuth` correctly at this layer, the plugin extracts the Bearer token from the request, hashes it, and looks it up directly via Strapi's `admin::api-token` service. This mirrors Strapi's own api-token strategy (including expiry checks) and fails closed on every error path.
+For `requireAuth`, the REST middleware runs at the global app level — _before_ Strapi's per-route `authenticate` strategy populates `ctx.state.auth`. To honour `requireAuth` correctly at this layer, the plugin extracts the Bearer token from the request, hashes it, and looks it up directly via Strapi's `admin::api-token` service. This mirrors Strapi's own api-token strategy (including expiry checks) and fails closed on every error path.
 
 ### GraphQL
 

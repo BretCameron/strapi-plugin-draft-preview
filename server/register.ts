@@ -65,7 +65,10 @@ function registerRestSupport(strapi: Core.Strapi, pluginConfig: PluginConfig) {
     pluginConfig.requireAuth && !pluginConfig.authorize
       ? {
           ...pluginConfig,
-          authorize: buildRequireAuthAuthorize(strapi, pluginConfig.requireAuth),
+          authorize: buildRequireAuthAuthorize(
+            strapi,
+            pluginConfig.requireAuth,
+          ),
         }
       : pluginConfig;
 
@@ -76,4 +79,3 @@ function registerRestSupport(strapi: Core.Strapi, pluginConfig: PluginConfig) {
   // after Strapi's own request-parsing chain.
   (strapi.server.app as { use: (mw: unknown) => void }).use(middleware);
 }
-

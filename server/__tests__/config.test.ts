@@ -47,9 +47,7 @@ describe("config", () => {
     });
 
     it("accepts an authorize function", () => {
-      expect(() =>
-        config.validator({ authorize: () => true }),
-      ).not.toThrow();
+      expect(() => config.validator({ authorize: () => true })).not.toThrow();
     });
 
     it("rejects a non-function authorize", () => {
@@ -60,15 +58,11 @@ describe("config", () => {
     });
 
     it("accepts requireAuth = true", () => {
-      expect(() =>
-        config.validator({ requireAuth: true }),
-      ).not.toThrow();
+      expect(() => config.validator({ requireAuth: true })).not.toThrow();
     });
 
     it("accepts requireAuth = false", () => {
-      expect(() =>
-        config.validator({ requireAuth: false }),
-      ).not.toThrow();
+      expect(() => config.validator({ requireAuth: false })).not.toThrow();
     });
 
     it('accepts requireAuth = "api-token"', () => {
@@ -78,9 +72,7 @@ describe("config", () => {
     });
 
     it('accepts requireAuth = "admin"', () => {
-      expect(() =>
-        config.validator({ requireAuth: "admin" }),
-      ).not.toThrow();
+      expect(() => config.validator({ requireAuth: "admin" })).not.toThrow();
     });
 
     it("rejects an invalid requireAuth value", () => {
@@ -91,9 +83,7 @@ describe("config", () => {
     });
 
     it("accepts guardNativeStatus = true", () => {
-      expect(() =>
-        config.validator({ guardNativeStatus: true }),
-      ).not.toThrow();
+      expect(() => config.validator({ guardNativeStatus: true })).not.toThrow();
     });
 
     it("rejects a non-boolean guardNativeStatus", () => {

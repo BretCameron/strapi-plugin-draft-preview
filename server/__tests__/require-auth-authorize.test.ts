@@ -4,12 +4,13 @@ import { buildRequireAuthAuthorize } from "../require-auth-authorize";
 const buildMockStrapi = (apiTokenService: {
   getBy?: (q: Record<string, unknown>) => Promise<unknown>;
   hash?: (t: string) => string;
-}) => ({
-  service: vi.fn((name: string) => {
-    if (name === "admin::api-token") return apiTokenService;
-    return null;
-  }),
-}) as any;
+}) =>
+  ({
+    service: vi.fn((name: string) => {
+      if (name === "admin::api-token") return apiTokenService;
+      return null;
+    }),
+  }) as any;
 
 const ctxWithHeader = (
   authorization?: string | string[],
