@@ -13,7 +13,11 @@ No per-query rewrites, no parallel staging schemas. Works the same way over both
 
 ## Why you'd want this
 
-This plugin makes draft preview a one-line config change:
+This plugin gives you two things:
+
+**1. Draft preview** — send `x-include-drafts: true` from your preview environment, and every REST or GraphQL request returns draft content, including nested relations. No per-query rewrites, no parallel staging schemas.
+
+**2. Draft leak prevention** — Strapi's default permission model treats drafts and published content as a single `find` permission. Anyone with read access can fetch drafts via `?status=draft` (REST) or `status: DRAFT` (GraphQL). For products where draft leakage matters — early announcements, embargoed content, unreleased features — this plugin's auth gate plus `guardNativeStatus: true` is the missing piece.
 
 ```js
 // config/plugins.js
@@ -22,10 +26,11 @@ module.exports = {
 };
 ```
 
-Now you can send one header and gets drafts back. Use-cases include:
+Common use cases:
 
 - Showing drafts in staging; hiding them in production.
-- Showing drafts to admin users; hiding them for everyone else.
+- Showing drafts to admin users or specific API tokens; hiding them for everyone else.
+- Preventing public draft access via the native `?status=draft` path.
 
 ## Install
 
@@ -60,6 +65,68 @@ const draftHeaderLink = setContext((_, { headers }) => ({
 - Custom resolvers and non-draft content types are left alone.
 - Explicit intent wins: a query passing `status: PUBLISHED` (GraphQL) or `?status=published` (REST) ignores the header.
 
+## Security
+
+The header is a *request* to honour, not a *demand*. Whether the plugin honours it is decided by the auth gate, in this priority order:
+
+1. **`authorize`** — your custom predicate. If you set it, its return value is the answer.
+2. **`requireAuth`** — built-in check. `true` allows callers authenticated via API token. String forms (`"api-token"`) pin to one strategy.
+3. **Env gate (default)** — denies in `NODE_ENV=production`, allows otherwise.
+
+| Caller | `?status=draft` (native) | `x-include-drafts` header |
+|---|---|---|
+| Allowed by gate | drafts | drafts |
+| Denied by gate, `guardNativeStatus: false` (default) | drafts (Strapi serves them) | silent fallback → published |
+| Denied by gate, `guardNativeStatus: true` | rewritten → published | silent fallback → published |
+
+### Use case 1: staging only, prod hidden
+
+Default behaviour. Ship the plugin, set `NODE_ENV=production` on prod, and the header is automatically ignored there.
+
+### Use case 2: admin-only previews in production
+
+```js
+"draft-preview": {
+  enabled: true,
+  config: { requireAuth: true, guardNativeStatus: true },
+},
+```
+
+Bake an API token into your preview frontend and send it with `Authorization: Bearer <token>` plus the preview header. Anyone without the token gets published — including via `?status=draft`.
+
+### Use case 3: per-environment isolation
+
+Issue separate API tokens per environment, allow-list them by name:
+
+```js
+authorize: (ctx) =>
+  ["preview-uat", "preview-develop"].includes(
+    ctx.state.auth?.credentials?.name,
+  ),
+```
+
+A leaked token in one environment is recoverable by rotating just that token.
+
+### IP allow-listing, geo-fencing, etc.
+
+Express it from `authorize`:
+
+```js
+authorize: (ctx) => allowedIps.includes(ctx.ip),
+```
+
+For richer rules (IP reputation, rate limits, geo) use your CDN or WAF — they handle proxy chains and observability properly.
+
+### Keeping v1.0.0 behaviour
+
+If you genuinely want the header to be public:
+
+```js
+authorize: () => true,
+```
+
+This is rarely the right choice. It's offered explicitly so the bypass is auditable.
+
 ## Configuration (all optional)
 
 ```js
@@ -67,13 +134,24 @@ module.exports = {
   "draft-preview": {
     enabled: true,
     config: {
+      // Header behaviour
       headerName: "x-strapi-preview", // default: "x-include-drafts"
-      expectedHeaderValue: "1", // default: "true"
-      statusValue: "draft", // default: "draft"
+      expectedHeaderValue: "1",       // default: "true"
+      statusValue: "draft",           // default: "draft"
+
+      // Auth gate (new in v2) — priority order:
+      authorize: (ctx) => ctx.state.user?.role?.name === "Editor", // 1
+      requireAuth: true, // 2 — alternatively "api-token" or "admin"
+      // 3 (default): denies in NODE_ENV=production
+
+      // Optional — close the ?status=draft / status: DRAFT bypass
+      guardNativeStatus: true, // default: false
     },
   },
 };
 ```
+
+All keys are optional. Set only what you need.
 
 ## Verify it works
 
@@ -106,9 +184,19 @@ In draft mode `publishedAt` is `null` and `category` reflects the latest unpubli
 
 ## How it works
 
-**REST** is the simple half: a Koa middleware reads the header on `/api/*` requests and sets `ctx.query.status = "draft"` before the controller runs. Strapi's REST controllers cascade `status` to relation populates by default, so nothing else is needed.
+### REST
 
-**GraphQL** is more involved. Strapi's GraphQL plugin registers an Apollo `willResolveField` hook that captures `contextValue.rootQueryArgs` from the root query's args. The association resolver for relations reads `rootQueryArgs.status` to decide which side of the draft/published split to populate from. A `resolversConfig` middleware mutates args _after_ that snapshot, so its mutation never reaches relation populates — every relation comes back as `null` in draft mode. This plugin hooks the same `willResolveField` lifecycle, mutating both `args.status` and `rootQueryArgs.status` so populates inherit the right status. Robust to Apollo plugin ordering changes across Strapi versions.
+A global Koa middleware reads the header on `/api/*` requests and sets `ctx.query.status = "draft"` before the controller runs. Strapi's REST controllers cascade `status` to relation populates by default, so nothing else is needed for the basic header path.
+
+For `requireAuth`, the REST middleware runs at the global app level — *before* Strapi's per-route `authenticate` strategy populates `ctx.state.auth`. To honour `requireAuth` correctly at this layer, the plugin extracts the Bearer token from the request, hashes it, and looks it up directly via Strapi's `admin::api-token` service. This mirrors Strapi's own api-token strategy (including expiry checks) and fails closed on every error path.
+
+### GraphQL
+
+Strapi's GraphQL plugin registers an Apollo `willResolveField` hook that captures `contextValue.rootQueryArgs` from the root query's args. The association resolver for relations reads `rootQueryArgs.status` to decide which side of the draft/published split to populate from. A `resolversConfig` middleware mutates args _after_ that snapshot, so its mutation never reaches relation populates — every relation comes back as `null` in draft mode.
+
+This plugin hooks the same `willResolveField` lifecycle, mutating both `args.status` and `rootQueryArgs.status` so populates inherit the right status. Robust to Apollo plugin ordering changes across Strapi versions.
+
+Because GraphQL resolvers run inside route handlers (after Strapi's authenticate strategy), `ctx.state.auth.strategy.name` is populated by the time `requireAuth` is checked — so the GraphQL path uses the simple strategy-name lookup. The plugin handles both layers transparently; the configuration surface is the same for either transport.
 
 ## Compatibility
 
