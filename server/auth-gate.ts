@@ -22,6 +22,14 @@ export function detectRestSignals(
   return { header, nativeRest };
 }
 
+/**
+ * Built-in auth check based on `ctx.state.auth.strategy.name`.
+ *
+ * Used by `runGate` when `config.requireAuth` is set AND `ctx.state.auth`
+ * is populated. At the global Koa middleware layer, `ctx.state.auth` is
+ * not yet populated — `register.ts` synthesises a parallel `authorize`
+ * callback (`buildRequireAuthAuthorize`) that handles that layer.
+ */
 export function checkBuiltInAuth(
   ctx: AuthGateContext,
   requireAuth: RequireAuthOption | undefined,

@@ -1,7 +1,8 @@
 import type { Core } from "@strapi/strapi";
 import { createApolloPlugin } from "./apollo-plugin";
 import { createKoaMiddleware } from "./koa-middleware";
-import type { AuthGateContext, PluginConfig, RequireAuthOption } from "./config";
+import type { PluginConfig } from "./config";
+import { buildRequireAuthAuthorize } from "./require-auth-authorize";
 
 export default ({ strapi }: { strapi: Core.Strapi }) => {
   const pluginConfig = strapi.config.get<PluginConfig>("plugin::draft-preview");
@@ -76,83 +77,3 @@ function registerRestSupport(strapi: Core.Strapi, pluginConfig: PluginConfig) {
   (strapi.server.app as { use: (mw: unknown) => void }).use(middleware);
 }
 
-/**
- * Builds an `authorize` callback that honours `requireAuth` at the global
- * Koa middleware level, where `ctx.state.auth` is not yet populated.
- *
- * Priority:
- *   1. `ctx.state.auth.strategy.name` — works if auth is already populated
- *      (e.g. if architecture changes to run auth before our middleware).
- *   2. Direct Bearer-token lookup via Strapi's api-token service — the
- *      production path at the global middleware level.
- */
-function buildRequireAuthAuthorize(
-  strapi: Core.Strapi,
-  requireAuth: RequireAuthOption,
-): (ctx: AuthGateContext) => Promise<boolean> {
-  return async (ctx: AuthGateContext) => {
-    // Fast path: auth already on context (future-proof).
-    const strategyName = ctx.state?.auth?.strategy?.name;
-
-    if (strategyName) {
-      if (requireAuth === true) {
-        return strategyName === "api-token" || strategyName === "admin";
-      }
-
-      return strategyName === requireAuth;
-    }
-
-    // Slow path: inspect the request directly.
-    // Extract Bearer token and validate via Strapi's api-token service.
-    const authorization = ctx.request.header["authorization"];
-    const authHeader = Array.isArray(authorization)
-      ? authorization[0]
-      : authorization;
-
-    if (!authHeader) return false;
-
-    const parts = authHeader.split(/\s+/);
-
-    if (parts[0]?.toLowerCase() !== "bearer" || parts.length !== 2) {
-      return false;
-    }
-
-    const rawToken = parts[1];
-
-    if (requireAuth === "admin") {
-      // At the global Koa level, admin JWTs and API tokens are
-      // indistinguishable without decoding the Bearer payload. The
-      // fast path above (ctx.state.auth.strategy.name) handles admin
-      // when auth has run; here we conservatively deny.
-      return false;
-    }
-
-    // requireAuth is true or "api-token" — validate the api token.
-    try {
-      const apiTokenService = strapi.service("admin::api-token") as {
-        getBy: (q: Record<string, unknown>) => Promise<{
-          expiresAt?: string | Date | null;
-        } | null>;
-        hash: (t: string) => string;
-      };
-
-      const apiToken = await apiTokenService.getBy({
-        accessKey: apiTokenService.hash(rawToken),
-      });
-
-      if (!apiToken) return false;
-
-      // Match Strapi's own api-token strategy: reject expired tokens.
-      if (
-        apiToken.expiresAt != null &&
-        new Date(apiToken.expiresAt) < new Date()
-      ) {
-        return false;
-      }
-
-      return true;
-    } catch {
-      return false;
-    }
-  };
-}
