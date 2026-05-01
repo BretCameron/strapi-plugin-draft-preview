@@ -3,12 +3,14 @@
 // can crash vitest worker forks. Swallow them — assertions in tests are
 // the only thing that decides pass/fail.
 //
-// Known cases:
-//   - TypeError: didEndHook is not a function (Apollo schema instrumentation
-//     when a plugin's willResolveField returns a Promise — fixed in our
-//     plugin, but other plugins may still trigger it)
-//   - TypeError: conditionProvider (Strapi admin destroy with
-//     serveAdminPanel: false)
+// We attempted to diagnose the residual flakiness (~10% of runs lose one
+// of three forks at shutdown) and found that the workers die without
+// firing any catchable hook (no unhandledRejection, no uncaughtException,
+// no SIGTERM/SIGINT/SIGPIPE/SIGHUP, no `exit` event). The cause is in
+// vitest's fork lifecycle interacting with Strapi's shutdown — outside
+// what we can fix from inside the worker. Tests themselves all pass when
+// they run; the failure mode is "vitest can't collect results from a
+// dead worker", not assertion failure.
 process.on("unhandledRejection", () => {
   /* swallow */
 });

@@ -12,6 +12,7 @@ const cjsRequire = createRequire(__filename);
 const APP_DIR = resolve(__dirname, "test-app");
 const PORT = 1340;
 const REST_BASE = `http://127.0.0.1:${PORT}/api`;
+const GQL_ENDPOINT = `http://127.0.0.1:${PORT}/graphql`;
 
 interface ArticleResponse {
   data: { documentId: string; title: string };
@@ -38,6 +39,30 @@ const rest = async <T = unknown>(
   }
 
   return (await res.json()) as T;
+};
+
+const gql = async (
+  query: string,
+  headers: Record<string, string> = {},
+): Promise<Record<string, unknown>> => {
+  const res = await fetch(GQL_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...headers },
+    body: JSON.stringify({ query }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+  }
+
+  const json = (await res.json()) as {
+    data?: Record<string, unknown>;
+    errors?: unknown;
+  };
+
+  expect(json.errors, JSON.stringify(json.errors)).toBeUndefined();
+
+  return json.data ?? {};
 };
 
 beforeAll(async () => {
@@ -174,5 +199,32 @@ describe("authorize predicate gate (integration)", () => {
     });
 
     expect(data.data.title).toMatch(/draft v1/);
+  });
+});
+
+describe("authorize predicate gate — GraphQL (integration)", () => {
+  it("token (matching name) + header (GraphQL) → drafts (predicate returns true)", async () => {
+    const data = await gql(
+      `{ article(documentId: "${articleDocumentId}") { documentId title } }`,
+      {
+        Authorization: `Bearer ${apiToken}`,
+        "x-include-drafts": "true",
+      },
+    );
+
+    const article = data.article as { documentId: string; title: string };
+
+    expect(article.title).toMatch(/draft v2/);
+  });
+
+  it("no token + header (GraphQL) → published (predicate returns false; silent fallback)", async () => {
+    const data = await gql(
+      `{ article(documentId: "${articleDocumentId}") { documentId title } }`,
+      { "x-include-drafts": "true" },
+    );
+
+    const article = data.article as { documentId: string; title: string };
+
+    expect(article.title).toMatch(/draft v1/);
   });
 });

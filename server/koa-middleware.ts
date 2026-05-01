@@ -1,7 +1,7 @@
 import { detectRestSignals, runGate } from "./auth-gate";
 import type { PluginConfig } from "./config";
 
-interface KoaContext {
+export interface KoaContext {
   path: string;
   request: { header: Record<string, string | string[] | undefined> };
   query: Record<string, unknown>;

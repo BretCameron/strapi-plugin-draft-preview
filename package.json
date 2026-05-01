@@ -36,6 +36,14 @@
     "url": "git+https://github.com/BretCameron/strapi-plugin-draft-preview.git"
   },
   "main": "strapi-server.js",
+  "exports": {
+    ".": "./strapi-server.js",
+    "./middleware": {
+      "types": "./dist/server/middleware.d.ts",
+      "default": "./dist/server/middleware.js"
+    },
+    "./package.json": "./package.json"
+  },
   "files": [
     "dist",
     "strapi-server.js",

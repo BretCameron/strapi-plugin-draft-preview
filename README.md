@@ -198,6 +198,28 @@ This plugin hooks the same `willResolveField` lifecycle, mutating both `args.sta
 
 GraphQL resolvers run inside route handlers (after `authenticate`), so the GraphQL path also reads `ctx.state.auth.strategy.name` directly. The configuration surface is identical for either transport.
 
+### Custom routes
+
+The plugin walks `strapi.apis` and `strapi.plugins` to inject its middleware into every content-API route — covering the conventional `src/api/` layout and most plugin routes. Routes hand-rolled outside that convention (e.g. via `strapi.server.routes(...)` from your own `bootstrap`) won't be touched.
+
+If you have such a route and want the gate to apply to it, import the middleware factory and add it to the route's `config.middlewares`:
+
+```ts
+import { createDraftPreviewMiddleware } from "strapi-plugin-draft-preview/middleware";
+
+// In your custom route's config:
+{
+  method: "GET",
+  path: "/my-custom",
+  handler: "myController.action",
+  config: {
+    middlewares: [createDraftPreviewMiddleware({ strapi })],
+  },
+}
+```
+
+The factory reads the plugin's configured `headerName`, `statusValue`, `authorize`, `requireAuth`, and `guardNativeStatus` from `strapi.config.get('plugin::draft-preview')`, so the gate behaves identically to the auto-injected middleware.
+
 ## Compatibility
 
 - Strapi `5.x`
