@@ -80,10 +80,7 @@ interface RouterLike {
   routes?: RouteLike[];
 }
 
-type RouteMiddleware = (
-  ctx: never,
-  next: () => Promise<void>,
-) => Promise<void>;
+type RouteMiddleware = (ctx: never, next: () => Promise<void>) => Promise<void>;
 
 function injectIntoContentApiRoutes(
   strapi: Core.Strapi,
