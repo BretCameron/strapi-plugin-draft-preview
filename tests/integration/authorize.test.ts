@@ -1,5 +1,5 @@
-process.env.DRAFT_PREVIEW_REQUIRE_AUTH = "true";
-process.env.PORT = "1339";
+process.env.DRAFT_PREVIEW_AUTHORIZE_MODE = "role-editor";
+process.env.PORT = "1340";
 
 import type { Core } from "@strapi/strapi";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -10,9 +10,8 @@ import { createRequire } from "node:module";
 const cjsRequire = createRequire(__filename);
 
 const APP_DIR = resolve(__dirname, "test-app");
-const PORT = 1339;
+const PORT = 1340;
 const REST_BASE = `http://127.0.0.1:${PORT}/api`;
-const GQL_ENDPOINT = `http://127.0.0.1:${PORT}/graphql`;
 
 interface ArticleResponse {
   data: { documentId: string; title: string };
@@ -41,26 +40,6 @@ const rest = async <T = unknown>(
   return (await res.json()) as T;
 };
 
-const gql = async (
-  query: string,
-  headers: Record<string, string> = {},
-): Promise<Record<string, unknown>> => {
-  const res = await fetch(GQL_ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...headers },
-    body: JSON.stringify({ query }),
-  });
-
-  if (!res.ok) {
-    throw new Error(`HTTP ${res.status}: ${await res.text()}`);
-  }
-
-  const json = (await res.json()) as { data?: Record<string, unknown>; errors?: unknown };
-
-  expect(json.errors, JSON.stringify(json.errors)).toBeUndefined();
-
-  return json.data ?? {};
-};
 
 beforeAll(async () => {
   rmSync(resolve(APP_DIR, ".tmp"), { recursive: true, force: true });
@@ -82,7 +61,7 @@ beforeAll(async () => {
   await strapiInstance.start();
 
   // Grant public role read access on Article so unauthenticated requests
-  // succeed (required for the "no token → published" assertion).
+  // succeed (required for the "no token → published" assertions).
   const roles = (await strapiInstance
     .service("plugin::users-permissions.role")
     .find()) as UsersPermissionsRole[];
@@ -129,10 +108,11 @@ beforeAll(async () => {
 
   articleDocumentId = articleDoc.documentId;
 
-  // Issue a read-only API token.
+  // Issue an API token named "preview-test" — this matches the authorize
+  // predicate: ctx.state?.auth?.credentials?.name === "preview-test".
   const created = await strapiInstance.service("admin::api-token").create({
     name: "preview-test",
-    description: "integration test preview token",
+    description: "integration test authorize token",
     type: "read-only",
     lifespan: null,
   });
@@ -157,8 +137,8 @@ afterAll(async () => {
   }
 }, 30_000);
 
-describe("requireAuth gate (integration)", () => {
-  it("token + header → drafts", async () => {
+describe("authorize predicate gate (integration)", () => {
+  it("token (matching name) + header → drafts (predicate returns true)", async () => {
     const data = await rest<ArticleResponse>(`/articles/${articleDocumentId}`, {
       Authorization: `Bearer ${apiToken}`,
       "x-include-drafts": "true",
@@ -167,47 +147,21 @@ describe("requireAuth gate (integration)", () => {
     expect(data.data.title).toMatch(/draft v2/);
   });
 
-  it("no token + header → published (silent fallback)", async () => {
-    const data = await rest<ArticleResponse>(`/articles/${articleDocumentId}`, {
-      "x-include-drafts": "true",
-    });
-
-    expect(data.data.title).toMatch(/draft v1/);
-  });
-});
-
-describe("requireAuth gate — GraphQL (integration)", () => {
-  it("token + header (GraphQL) → drafts", async () => {
-    const data = await gql(
-      `{ article(documentId: "${articleDocumentId}") { documentId title } }`,
-      {
-        Authorization: `Bearer ${apiToken}`,
-        "x-include-drafts": "true",
-      },
+  it("token (matching name) + ?status=draft (no header) → drafts (predicate allows; native pass-through)", async () => {
+    // The predicate allows the request. guardNativeStatus is set, but the
+    // allow path leaves native status params intact — so ?status=draft is
+    // passed through and Strapi serves the draft row.
+    const data = await rest<ArticleResponse>(
+      `/articles/${articleDocumentId}?status=draft`,
+      { Authorization: `Bearer ${apiToken}` },
     );
 
-    const article = data.article as { documentId: string; title: string };
-
-    expect(article.title).toMatch(/draft v2/);
+    expect(data.data.title).toMatch(/draft v2/);
   });
 
-  it("no token + header (GraphQL) → published (silent fallback)", async () => {
-    const data = await gql(
-      `{ article(documentId: "${articleDocumentId}") { documentId title } }`,
-      { "x-include-drafts": "true" },
-    );
-
-    const article = data.article as { documentId: string; title: string };
-
-    expect(article.title).toMatch(/draft v1/);
-  });
-});
-
-describe("guardNativeStatus gate (integration)", () => {
-  it("no token + ?status=draft (REST native) → published (gate denies, guard rewrites)", async () => {
-    // Public role has find/findOne enabled. Without our guard, Strapi would
-    // serve the draft row. With guardNativeStatus the param is rewritten to
-    // 'published' before the controller acts.
+  it("no token + ?status=draft → published (predicate returns false; guardNativeStatus rewrites)", async () => {
+    // Without the token the predicate returns false. guardNativeStatus
+    // rewrites the status param to 'published' before the controller acts.
     const data = await rest<ArticleResponse>(
       `/articles/${articleDocumentId}?status=draft`,
     );
@@ -215,13 +169,11 @@ describe("guardNativeStatus gate (integration)", () => {
     expect(data.data.title).toMatch(/draft v1/);
   });
 
-  it("no token + GraphQL status: DRAFT → published (gate denies, guard rewrites)", async () => {
-    const data = await gql(
-      `{ article(documentId: "${articleDocumentId}", status: DRAFT) { title } }`,
-    );
+  it("no token + header → published (predicate returns false; silent fallback)", async () => {
+    const data = await rest<ArticleResponse>(`/articles/${articleDocumentId}`, {
+      "x-include-drafts": "true",
+    });
 
-    const article = data.article as { title: string };
-
-    expect(article.title).toMatch(/draft v1/);
+    expect(data.data.title).toMatch(/draft v1/);
   });
 });
