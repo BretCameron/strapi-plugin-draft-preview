@@ -3,7 +3,13 @@ import { describe, expect, it, vi } from "vitest";
 import register from "../register";
 import { defaultConfig, type PluginConfig } from "../config";
 
-const buildStrapi = (pluginConfig: PluginConfig) => {
+const buildStrapi = (
+  pluginConfig: PluginConfig,
+  overrides: {
+    apis?: Record<string, unknown>;
+    plugins?: Record<string, unknown>;
+  } = {},
+) => {
   const log = { info: vi.fn(), warn: vi.fn() };
   const config = {
     get: vi.fn((key: string) => {
@@ -17,7 +23,14 @@ const buildStrapi = (pluginConfig: PluginConfig) => {
   const server = { app: { use: vi.fn() } };
   const plugin = vi.fn(() => null);
   return {
-    strapi: { log, config, server, plugin } as unknown as Core.Strapi,
+    strapi: {
+      log,
+      config,
+      server,
+      plugin,
+      apis: overrides.apis ?? {},
+      plugins: overrides.plugins ?? {},
+    } as unknown as Core.Strapi,
     log,
   };
 };
@@ -78,5 +91,118 @@ describe("register — boot-time warning", () => {
     } finally {
       process.env.NODE_ENV = original;
     }
+  });
+});
+
+describe("register — route injection", () => {
+  it("appends the middleware to a content-api route", () => {
+    const route = { method: "GET", path: "/articles", handler: "article.find" };
+    const { strapi } = buildStrapi(defaultConfig, {
+      apis: {
+        article: {
+          routes: {
+            default: { type: "content-api", routes: [route] },
+          },
+        },
+      },
+    });
+
+    register({ strapi });
+
+    expect(Array.isArray(route.config?.middlewares)).toBe(true);
+    expect(typeof route.config?.middlewares?.[0]).toBe("function");
+  });
+
+  it("skips admin routes", () => {
+    const route = { method: "GET", path: "/articles", handler: "article.find" };
+    const { strapi } = buildStrapi(defaultConfig, {
+      apis: {
+        article: {
+          routes: {
+            default: { type: "admin", routes: [route] },
+          },
+        },
+      },
+    });
+
+    register({ strapi });
+
+    expect(route.config).toBeUndefined();
+  });
+
+  it("injects into object-shape plugin routes (users-permissions style)", () => {
+    const route = { method: "GET", path: "/users", handler: "user.find" };
+    const { strapi } = buildStrapi(defaultConfig, {
+      plugins: {
+        "users-permissions": {
+          routes: {
+            "content-api": { type: "content-api", routes: [route] },
+            admin: { type: "admin", routes: [] },
+          },
+        },
+      },
+    });
+
+    register({ strapi });
+
+    expect(Array.isArray(route.config?.middlewares)).toBe(true);
+    expect(typeof route.config?.middlewares?.[0]).toBe("function");
+  });
+
+  it("skips flat-array plugin routes", () => {
+    const route = { method: "GET", path: "/foo", handler: "foo.bar" };
+    const { strapi } = buildStrapi(defaultConfig, {
+      plugins: {
+        foo: {
+          routes: [route],
+        },
+      },
+    });
+
+    register({ strapi });
+
+    expect((route as Record<string, unknown>).config).toBeUndefined();
+  });
+
+  it("preserves existing middlewares and appends ours", () => {
+    const route = {
+      method: "GET",
+      path: "/articles",
+      handler: "article.find",
+      config: { middlewares: ["existing"] as unknown[] },
+    };
+    const { strapi } = buildStrapi(defaultConfig, {
+      apis: {
+        article: {
+          routes: {
+            default: { type: "content-api", routes: [route] },
+          },
+        },
+      },
+    });
+
+    register({ strapi });
+
+    expect(route.config.middlewares[0]).toBe("existing");
+    expect(typeof route.config.middlewares[1]).toBe("function");
+  });
+
+  it("creates config and middlewares when route has no config property", () => {
+    const route = { method: "GET", path: "/articles", handler: "article.find" };
+    const { strapi } = buildStrapi(defaultConfig, {
+      apis: {
+        article: {
+          routes: {
+            default: { type: "content-api", routes: [route] },
+          },
+        },
+      },
+    });
+
+    register({ strapi });
+
+    expect(route.config).toBeDefined();
+    expect(Array.isArray(route.config?.middlewares)).toBe(true);
+    expect(route.config?.middlewares).toHaveLength(1);
   });
 });

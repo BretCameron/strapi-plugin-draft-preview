@@ -263,6 +263,44 @@ describe("applyDraftStatus", () => {
       process.env.NODE_ENV = original;
     }
   });
+
+  it("status: $var (VariableNode) is not detected as explicit status — header path applies", async () => {
+    const guarded: PluginConfig = { ...config, guardNativeStatus: true };
+
+    // Manually construct params with a Variable-kind AST node (no .value.value).
+    const params: Params = {
+      source: undefined,
+      args: {},
+      contextValue: {
+        koaContext: { request: { header: { "x-include-drafts": "true" } } },
+        rootQueryArgs: {},
+      },
+      info: {
+        fieldName: "portalResources",
+        operation: { operation: "query" },
+        parentType: {
+          getFields: () => ({
+            portalResources: { args: [{ name: "status" }, { name: "filters" }] },
+          }),
+        },
+        fieldNodes: [
+          {
+            arguments: [
+              {
+                name: { value: "status" },
+                value: { kind: "Variable", name: { value: "statusVar" } },
+              },
+            ],
+          },
+        ],
+      },
+    };
+
+    // In test env the gate allows; header path should inject draft.
+    await applyDraftStatus(params, guarded);
+
+    expect(params.args.status).toBe("draft");
+  });
 });
 
 describe("createApolloPlugin", () => {

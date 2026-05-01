@@ -217,4 +217,27 @@ describe("createKoaMiddleware", () => {
 
     expect(ctx.query.status).toBe("draft");
   });
+
+  it("header + ?status=draft + production deny + guardNativeStatus → native rewrite wins, header dropped", async () => {
+    const original = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      const guarded: PluginConfig = { ...config, guardNativeStatus: true };
+      const middleware = createKoaMiddleware({
+        config: guarded,
+        apiPrefix: "/api",
+      });
+      const ctx = buildCtx({
+        header: { "x-include-drafts": "true" },
+        query: { status: "draft" },
+      });
+      const next = vi.fn().mockResolvedValue(undefined);
+
+      await middleware(ctx, next);
+
+      expect(ctx.query.status).toBe("published");
+    } finally {
+      process.env.NODE_ENV = original;
+    }
+  });
 });
