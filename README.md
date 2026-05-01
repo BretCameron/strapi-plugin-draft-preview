@@ -10,6 +10,7 @@
 ## Why you'd want this
 
 By default, Strapi's draft mode:
+
 - Requires you to manually request the draft `status` for every query.
 - Is tied to the same `find` permission as published content. If draft leakage matters, Strapi's built-in system can't help.
 
@@ -58,11 +59,11 @@ Whether the plugin honours the header is decided by the auth gate, in this order
 2. `requireAuth`: built-in check. `true` allows callers authenticated via API token. String forms (`"api-token"`, `"admin"`) pin to one strategy.
 3. NODE_ENV env gate (default): the header is honoured outside production, denied in production. Override via `authorize`.
 
-| Caller                                               | `?status=draft` (native)    | `x-include-drafts` header   |
-| ---------------------------------------------------- | --------------------------- | --------------------------- |
-| Allowed by gate                                      | drafts                      | drafts                      |
-| Denied by gate, `guardNativeStatus: false` (default) | drafts (Strapi serves them) | published                   |
-| Denied by gate, `guardNativeStatus: true`            | published                   | published                   |
+| Caller                                               | `?status=draft` (native)    | `x-include-drafts` header |
+| ---------------------------------------------------- | --------------------------- | ------------------------- |
+| Allowed by gate                                      | drafts                      | drafts                    |
+| Denied by gate, `guardNativeStatus: false` (default) | drafts (Strapi serves them) | published                 |
+| Denied by gate, `guardNativeStatus: true`            | published                   | published                 |
 
 ### Use case 1: staging only, prod hidden
 
@@ -112,14 +113,14 @@ authorize: () => true,
 
 ## Configuration (all optional)
 
-| Key | Type | Default | Description |
-| --- | --- | --- | --- |
-| `headerName` | `string` | `"x-include-drafts"` | HTTP header that flips a request into draft mode. |
-| `expectedHeaderValue` | `string` | `"true"` | Header value treated as truthy. |
-| `statusValue` | `string` | `"draft"` | Status string injected into queries when the gate allows. |
-| `authorize` | `(ctx) => boolean \| Promise<boolean>` | (unset) | Custom predicate. If set, its return value is the gate's decision. Thrown errors are treated as deny. |
-| `requireAuth` | `true \| "api-token" \| "admin" \| false` | `false` | Built-in check. `true` allows callers authenticated via API token or admin JWT; string forms pin to one strategy. |
-| `guardNativeStatus` | `boolean` | `false` | When set, denied requests using the native `?status=draft` (REST) or `status: DRAFT` (GraphQL) paths are rewritten to `published`. Without this, the native paths bypass the gate. |
+| Key                   | Type                                      | Default              | Description                                                                                                                                                                        |
+| --------------------- | ----------------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `headerName`          | `string`                                  | `"x-include-drafts"` | HTTP header that flips a request into draft mode.                                                                                                                                  |
+| `expectedHeaderValue` | `string`                                  | `"true"`             | Header value treated as truthy.                                                                                                                                                    |
+| `statusValue`         | `string`                                  | `"draft"`            | Status string injected into queries when the gate allows.                                                                                                                          |
+| `authorize`           | `(ctx) => boolean \| Promise<boolean>`    | (unset)              | Custom predicate. If set, its return value is the gate's decision. Thrown errors are treated as deny.                                                                              |
+| `requireAuth`         | `true \| "api-token" \| "admin" \| false` | `false`              | Built-in check. `true` allows callers authenticated via API token or admin JWT; string forms pin to one strategy.                                                                  |
+| `guardNativeStatus`   | `boolean`                                 | `false`              | When set, denied requests using the native `?status=draft` (REST) or `status: DRAFT` (GraphQL) paths are rewritten to `published`. Without this, the native paths bypass the gate. |
 
 ## Compatibility
 
