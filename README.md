@@ -220,6 +220,34 @@ The factory reads the plugin's configured `headerName`, `statusValue`, `authoriz
 
 CI runs against multiple Strapi 5.x versions to catch upgrade-time contract breaks.
 
+## Upgrading from v1
+
+v2 adds an auth gate. The preview header is no longer free-for-all: in `NODE_ENV=production` it's denied by default, and you opt in via `requireAuth` or `authorize`. v2 also adds `guardNativeStatus: true`, which closes the `?status=draft` / `status: DRAFT` bypass for callers who don't pass the gate.
+
+Three migration paths, depending on what you used v1 for.
+
+**Staging or dev only.** No config change required. The env gate denies the header in `NODE_ENV=production`; in any other environment it allows. If you boot a v2 plugin in production without configuring `authorize` or `requireAuth`, the plugin logs a one-line `strapi.log.warn` on boot reminding you to configure a gate or to set `authorize: () => true` explicitly.
+
+**Admin or token-gated previews in production.** Add `requireAuth: true` so the header only works for callers authenticated via API token or admin JWT. Add `guardNativeStatus: true` to also block the native `?status=draft` path for callers without auth.
+
+```js
+"draft-preview": {
+  enabled: true,
+  config: { requireAuth: true, guardNativeStatus: true },
+},
+```
+
+**Keep v1 behaviour.** Set `authorize: () => true`. The header is honoured for everyone, same as before. This is rarely the right call, but it's offered as an explicit option so the bypass is auditable from config.
+
+```js
+"draft-preview": {
+  enabled: true,
+  config: { authorize: () => true },
+},
+```
+
+The full configuration surface is documented in [Configuration](#configuration-all-optional); the trust model and worked examples are in [Security](#security).
+
 ## Contributing
 
 Contributions welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, tests, and the changeset workflow.
