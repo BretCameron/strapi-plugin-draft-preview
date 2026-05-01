@@ -58,17 +58,27 @@ function registerRestSupport(strapi: Core.Strapi, pluginConfig: PluginConfig) {
     apiPrefix,
   }) as RouteMiddleware;
 
-  // Inject our middleware into every content-API route at register time.
-  // Strapi composes routes during bootstrap → server.initRouting(), AFTER
-  // plugin.register has finished — so route mutations made here are picked
-  // up. The composed pipeline is:
+  // Inject our middleware into every content-API route. Strapi composes
+  // routes during bootstrap → server.initRouting(); the composed pipeline is:
   //   [routeInfo, authenticate, authorize, policies, ...routeMiddlewares,
   //    returnBody, ...action]
-  // so our middleware runs AFTER `authenticate` and sees a fully populated
+  // so our middleware lands AFTER `authenticate` and sees a fully populated
   // `ctx.state.auth`. This avoids the global-app-middleware layer (which
   // runs before authenticate) and lets `runGate` rely on standard auth
   // strategy detection rather than re-implementing token lookup.
-  injectIntoContentApiRoutes(strapi, middleware);
+  //
+  // We defer iteration to the `strapi::content-types.afterSync` hook
+  // (runs AFTER every plugin's register has completed but BEFORE
+  // initRouting) because reading `router.routes` triggers a lazy getter
+  // on `createCoreRouter` that resolves custom fields. Resolving custom
+  // fields at register time would fail if any other plugin hasn't yet
+  // registered its custom fields (e.g. a local wysiwyg plugin).
+  // Strapi's `hook(name)` is typed as `any` upstream; narrow at the call
+  // site so we don't propagate `any` through our code.
+  const afterSync = strapi.hook("strapi::content-types.afterSync") as {
+    register: (handler: () => void) => void;
+  };
+  afterSync.register(() => injectIntoContentApiRoutes(strapi, middleware));
 }
 
 interface RouteLike {
