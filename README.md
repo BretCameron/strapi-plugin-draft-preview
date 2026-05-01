@@ -57,7 +57,7 @@ Whether the plugin honours the header is decided by the auth gate, in this order
 
 1. `authorize`: a custom callback. If you set it, it decides.
 2. `requireAuth`: built-in check. `true` allows callers authenticated via API token. String forms (`"api-token"`, `"admin"`) pin to one strategy.
-3. NODE_ENV env gate (default): the header is honoured outside production, denied in production. Override via `authorize`.
+3. NODE_ENV env gate (default): the header is honoured outside production, denied in production. Override via `authorize` or `requireAuth`.
 
 | Caller                                               | `?status=draft` (native)    | `x-include-drafts` header |
 | ---------------------------------------------------- | --------------------------- | ------------------------- |
