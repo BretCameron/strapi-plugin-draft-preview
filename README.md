@@ -186,9 +186,9 @@ In draft mode `publishedAt` is `null` and `category` reflects the latest unpubli
 
 ### REST
 
-A global Koa middleware reads the header on `/api/*` requests and sets `ctx.query.status = "draft"` before the controller runs. Strapi's REST controllers cascade `status` to relation populates by default, so nothing else is needed for the basic header path.
+A Koa middleware reads the header on content-API requests and sets `ctx.query.status = "draft"` before the controller runs. Strapi's REST controllers cascade `status` to relation populates by default, so nothing else is needed for the basic header path.
 
-For `requireAuth`, the REST middleware runs at the global app level — _before_ Strapi's per-route `authenticate` strategy populates `ctx.state.auth`. To honour `requireAuth` correctly at this layer, the plugin extracts the Bearer token from the request, hashes it, and looks it up directly via Strapi's `admin::api-token` service. This mirrors Strapi's own api-token strategy (including expiry checks) and fails closed on every error path.
+The middleware is injected per-route at plugin register time (into every content-API route's `config.middlewares`), which means it runs _after_ Strapi's `authenticate` strategy in the route pipeline. By the time the middleware runs, `ctx.state.auth.strategy.name` is populated, so `requireAuth` reads it directly — no Bearer-token re-validation needed.
 
 ### GraphQL
 
@@ -196,7 +196,7 @@ Strapi's GraphQL plugin registers an Apollo `willResolveField` hook that capture
 
 This plugin hooks the same `willResolveField` lifecycle, mutating both `args.status` and `rootQueryArgs.status` so populates inherit the right status. Robust to Apollo plugin ordering changes across Strapi versions.
 
-Because GraphQL resolvers run inside route handlers (after Strapi's authenticate strategy), `ctx.state.auth.strategy.name` is populated by the time `requireAuth` is checked — so the GraphQL path uses the simple strategy-name lookup. The plugin handles both layers transparently; the configuration surface is the same for either transport.
+GraphQL resolvers run inside route handlers (after `authenticate`), so the GraphQL path also reads `ctx.state.auth.strategy.name` directly. The configuration surface is identical for either transport.
 
 ## Compatibility
 

@@ -26,10 +26,10 @@ export function detectRestSignals(
 /**
  * Built-in auth check based on `ctx.state.auth.strategy.name`.
  *
- * Used by `runGate` when `config.requireAuth` is set AND `ctx.state.auth`
- * is populated. At the global Koa middleware layer, `ctx.state.auth` is
- * not yet populated — `register.ts` synthesises a parallel `authorize`
- * callback (`buildRequireAuthAuthorize`) that handles that layer.
+ * Used by `runGate` when `config.requireAuth` is set. The plugin injects
+ * its Koa middleware as a per-route middleware in `register.ts`, which
+ * runs AFTER Strapi's `authenticate` strategy in the route pipeline —
+ * so `ctx.state.auth` is populated by the time we read it.
  */
 export function checkBuiltInAuth(
   ctx: AuthGateContext,

@@ -2,7 +2,6 @@ import type { Core } from "@strapi/strapi";
 import { createApolloPlugin } from "./apollo-plugin";
 import { createKoaMiddleware } from "./koa-middleware";
 import type { PluginConfig } from "./config";
-import { buildRequireAuthAuthorize } from "./require-auth-authorize";
 
 export default ({ strapi }: { strapi: Core.Strapi }) => {
   const pluginConfig = strapi.config.get<PluginConfig>("plugin::draft-preview");
@@ -54,28 +53,73 @@ function registerGraphqlSupport(
 
 function registerRestSupport(strapi: Core.Strapi, pluginConfig: PluginConfig) {
   const apiPrefix = strapi.config.get<string>("api.rest.prefix") ?? "/api";
+  const middleware = createKoaMiddleware({
+    config: pluginConfig,
+    apiPrefix,
+  }) as RouteMiddleware;
 
-  // Our Koa middleware runs at the global app level, before Strapi's
-  // per-route `authenticate` middleware populates `ctx.state.auth`.
-  // When `requireAuth` is set and no `authorize` override is provided,
-  // we translate `requireAuth` into an `authorize` callback that directly
-  // checks the Bearer token via Strapi's api-token service — bypassing
-  // the need for a pre-populated `ctx.state.auth`.
-  const config =
-    pluginConfig.requireAuth && !pluginConfig.authorize
-      ? {
-          ...pluginConfig,
-          authorize: buildRequireAuthAuthorize(
-            strapi,
-            pluginConfig.requireAuth,
-          ),
-        }
-      : pluginConfig;
+  // Inject our middleware into every content-API route at register time.
+  // Strapi composes routes during bootstrap → server.initRouting(), AFTER
+  // plugin.register has finished — so route mutations made here are picked
+  // up. The composed pipeline is:
+  //   [routeInfo, authenticate, authorize, policies, ...routeMiddlewares,
+  //    returnBody, ...action]
+  // so our middleware runs AFTER `authenticate` and sees a fully populated
+  // `ctx.state.auth`. This avoids the global-app-middleware layer (which
+  // runs before authenticate) and lets `runGate` rely on standard auth
+  // strategy detection rather than re-implementing token lookup.
+  injectIntoContentApiRoutes(strapi, middleware);
+}
 
-  const middleware = createKoaMiddleware({ config, apiPrefix });
+interface RouteLike {
+  config?: { middlewares?: unknown[] } & Record<string, unknown>;
+}
 
-  // strapi.server.app is a Koa app; .use prepends to the middleware stack.
-  // Registering here means our middleware runs before route handlers but
-  // after Strapi's own request-parsing chain.
-  (strapi.server.app as { use: (mw: unknown) => void }).use(middleware);
+interface RouterLike {
+  type?: string;
+  routes?: RouteLike[];
+}
+
+type RouteMiddleware = (
+  ctx: never,
+  next: () => Promise<void>,
+) => Promise<void>;
+
+function injectIntoContentApiRoutes(
+  strapi: Core.Strapi,
+  middleware: RouteMiddleware,
+) {
+  const visitRouter = (router: RouterLike) => {
+    if (router.type !== "content-api") return;
+    if (!Array.isArray(router.routes)) return;
+    for (const route of router.routes) {
+      route.config = route.config ?? {};
+      route.config.middlewares = [
+        ...(route.config.middlewares ?? []),
+        middleware,
+      ];
+    }
+  };
+
+  // User APIs: src/api/<name>/routes/* — shape `{ [routerKey]: router }`.
+  for (const apiName of Object.keys(strapi.apis ?? {})) {
+    const api = strapi.apis[apiName] as { routes?: Record<string, RouterLike> };
+    for (const router of Object.values(api.routes ?? {})) {
+      visitRouter(router);
+    }
+  }
+
+  // Plugins: shape varies. Some return `{ [namespace]: router }` (e.g.
+  // users-permissions), others a flat array (legacy). Iterate both.
+  for (const pluginName of Object.keys(strapi.plugins ?? {})) {
+    const plugin = strapi.plugins[pluginName] as {
+      routes?: Record<string, RouterLike> | RouteLike[];
+    };
+    const routes = plugin.routes;
+    if (Array.isArray(routes)) continue; // Flat plugin routes are admin by default.
+    if (!routes || typeof routes !== "object") continue;
+    for (const router of Object.values(routes)) {
+      visitRouter(router);
+    }
+  }
 }
