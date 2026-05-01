@@ -55,7 +55,10 @@ const gql = async (
     throw new Error(`HTTP ${res.status}: ${await res.text()}`);
   }
 
-  const json = (await res.json()) as { data?: Record<string, unknown>; errors?: unknown };
+  const json = (await res.json()) as {
+    data?: Record<string, unknown>;
+    errors?: unknown;
+  };
 
   expect(json.errors, JSON.stringify(json.errors)).toBeUndefined();
 

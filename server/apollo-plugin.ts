@@ -21,31 +21,63 @@ interface WillResolveFieldArgs {
   };
 }
 
+interface ExecutionDidStartArgs {
+  contextValue?: {
+    koaContext?: AuthGateContext;
+    rootQueryArgs?: Record<string, unknown>;
+  };
+}
+
 /**
- * Apollo Server plugin factory. Returns a plugin that applies the
- * draft-preview auth gate to every root query field that accepts a
- * `status` argument.
+ * Apollo Server plugin factory.
+ *
+ * Apollo expects `willResolveField` to return synchronously — anything
+ * truthy/non-undefined is treated as a `didEndHook` callback. An `async`
+ * `willResolveField` returns `Promise<void>`, which Apollo's
+ * `invokeSyncDidStartHook` mistakenly tries to invoke as a function and
+ * throws `TypeError: didEndHook is not a function`. So the gate decision
+ * (the only async work we need) is computed once per request in
+ * `executionDidStart` (which Apollo *does* await), cached in closure, and
+ * read synchronously by `willResolveField`.
  */
 export function createApolloPlugin(config: PluginConfig) {
   return {
     requestDidStart() {
       return Promise.resolve({
-        executionDidStart() {
-          return Promise.resolve({
-            async willResolveField(params: WillResolveFieldArgs) {
-              await applyDraftStatus(params, config);
+        async executionDidStart(execArgs: ExecutionDidStartArgs) {
+          const koaCtx = execArgs?.contextValue?.koaContext;
+          // No koaCtx (shouldn't happen in Strapi) → deny by default.
+          const allowed = koaCtx ? await runGate(koaCtx, config) : false;
+          return {
+            willResolveField(params: WillResolveFieldArgs) {
+              applyDraftStatusSync(params, config, allowed);
             },
-          });
+          };
         },
       });
     },
   };
 }
 
+/**
+ * Async wrapper retained for unit tests that drive the plugin directly
+ * without going through Apollo's lifecycle. Production callers go through
+ * `createApolloPlugin` which precomputes `allowed` once per request.
+ */
 export async function applyDraftStatus(
-  { source, args, contextValue, info }: WillResolveFieldArgs,
+  params: WillResolveFieldArgs,
   config: PluginConfig,
 ): Promise<void> {
+  const koaCtx = params.contextValue?.koaContext;
+  const allowed = koaCtx ? await runGate(koaCtx, config) : false;
+  applyDraftStatusSync(params, config, allowed);
+}
+
+function applyDraftStatusSync(
+  { source, args, contextValue, info }: WillResolveFieldArgs,
+  config: PluginConfig,
+  allowed: boolean,
+): void {
   // Only act on root query fields. Sub-fields have a non-null source.
   if (source) return;
   if (info.operation.operation !== "query") return;
@@ -78,8 +110,6 @@ export async function applyDraftStatus(
   if (explicitlyPublished) return;
 
   if (!headerRequestsDrafts && !explicitlyDraft) return;
-
-  const allowed = await runGate(koaCtx, config);
 
   if (allowed) {
     if (headerRequestsDrafts) {

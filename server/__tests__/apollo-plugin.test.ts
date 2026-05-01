@@ -280,7 +280,9 @@ describe("applyDraftStatus", () => {
         operation: { operation: "query" },
         parentType: {
           getFields: () => ({
-            portalResources: { args: [{ name: "status" }, { name: "filters" }] },
+            portalResources: {
+              args: [{ name: "status" }, { name: "filters" }],
+            },
           }),
         },
         fieldNodes: [
@@ -308,12 +310,30 @@ describe("createApolloPlugin", () => {
     const plugin = createApolloPlugin(defaultConfig);
 
     const requestState = await plugin.requestDidStart();
-    const executionState = await requestState.executionDidStart();
-
     const params = buildParams({ header: "true" });
-    await executionState.willResolveField(params);
+    const executionState = await requestState.executionDidStart({
+      contextValue: params.contextValue,
+    });
+
+    executionState.willResolveField(params);
 
     expect(params.args.status).toBe("draft");
     expect(params.contextValue.rootQueryArgs?.status).toBe("draft");
+  });
+
+  it("willResolveField is synchronous (returns undefined, not a Promise)", async () => {
+    const plugin = createApolloPlugin(defaultConfig);
+    const requestState = await plugin.requestDidStart();
+    const params = buildParams({ header: "true" });
+    const executionState = await requestState.executionDidStart({
+      contextValue: params.contextValue,
+    });
+
+    const result = executionState.willResolveField(params);
+
+    // Apollo's invokeSyncDidStartHook treats any non-undefined return as
+    // a didEndHook and tries to invoke it. Returning a Promise (from an
+    // async willResolveField) triggers `TypeError: didEndHook is not a function`.
+    expect(result).toBeUndefined();
   });
 });

@@ -40,7 +40,6 @@ const rest = async <T = unknown>(
   return (await res.json()) as T;
 };
 
-
 beforeAll(async () => {
   rmSync(resolve(APP_DIR, ".tmp"), { recursive: true, force: true });
   rmSync(resolve(APP_DIR, ".strapi"), { recursive: true, force: true });
