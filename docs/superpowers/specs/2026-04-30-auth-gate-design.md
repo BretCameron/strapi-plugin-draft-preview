@@ -51,6 +51,7 @@ Priority order (first match wins):
 3. Env gate — deny when `process.env.NODE_ENV === "production"`, allow otherwise.
 
 Validators in `config.ts`:
+
 - `authorize` must be a function if set.
 - `requireAuth` must be `true`, `false`, `"api-token"`, or `"admin"`.
 - `guardNativeStatus` must be boolean.
@@ -130,7 +131,10 @@ export function checkBuiltInAuth(
 ): boolean;
 
 export function detectRestSignals(
-  ctx: { query: Record<string, unknown>; request: { header: Record<string, string | string[] | undefined> } },
+  ctx: {
+    query: Record<string, unknown>;
+    request: { header: Record<string, string | string[] | undefined> };
+  },
   config: PluginConfig,
 ): { header: boolean; nativeRest: boolean };
 ```
@@ -188,6 +192,7 @@ Reasons: `"authorize"`, `"requireAuth"`, `"env-gate"`, `"native-draft-rewritten"
 ### Unit tests — `server/__tests__/auth-gate.test.ts` (new)
 
 `runGate`:
+
 - `authorize` provided → return value wins (true / false / async-true / async-false / throws → deny).
 - `requireAuth: true` → allow on api-token, allow on admin, deny on users-permissions, deny on no auth.
 - `requireAuth: "api-token"` → allow only api-token, deny admin.
@@ -197,6 +202,7 @@ Reasons: `"authorize"`, `"requireAuth"`, `"env-gate"`, `"native-draft-rewritten"
 - Priority: `authorize` overrides `requireAuth`; `requireAuth` overrides env gate.
 
 `detectRestSignals`:
+
 - Header present and matches → `header: true`.
 - Header present but wrong value → `header: false`.
 - `query.status === statusValue` → `nativeRest: true`. Custom `statusValue` honoured.
@@ -212,6 +218,7 @@ Reasons: `"authorize"`, `"requireAuth"`, `"env-gate"`, `"native-draft-rewritten"
 ### Updated tests — `apollo-plugin.test.ts`
 
 GraphQL mirror of the above:
+
 - Header allow/deny.
 - Explicit `status: DRAFT` allow/deny under `guardNativeStatus`.
 - Existing tests for "explicit `status: PUBLISHED` ignores header" and "non-status-accepting fields untouched" remain green.
@@ -238,9 +245,11 @@ Existing integration tests use the default (unconfigured) plugin. Set `NODE_ENV=
 **Version:** 2.0.0. Breaking for anyone running v1.x in production.
 
 **Changeset entry (major):**
+
 > Auth gate: in production, the preview header is ignored unless `authorize`, `requireAuth`, or non-`production` `NODE_ENV` says otherwise. New `guardNativeStatus` flag optionally extends the gate to native `?status=draft` and `status: DRAFT` paths.
 
 **README updates:**
+
 - "Why you'd want this" section reframed to lead with two value props:
   1. **Draft preview** — send a header, get drafts. (Existing pitch.)
   2. **Draft leak prevention** — Strapi's `find` permission grants access to drafts via `?status=draft`. For products where draft leakage matters (early announcements, embargoed content), this plugin's auth gate plus `guardNativeStatus: true` is the missing piece. (New pitch.)
@@ -255,6 +264,7 @@ Existing integration tests use the default (unconfigured) plugin. Set `NODE_ENV=
 - "How it works" section gains a "How the gate works" subsection mirroring the decision flow.
 
 **CHANGELOG entry** under `## 2.0.0` with "Migrating from 1.x":
+
 1. Decide which use case applies (staging/dev only? admin-only? custom?).
 2. Pick the matching config snippet.
 3. If you genuinely want v1.0.0 behaviour, set `authorize: () => true` with a clear understanding that the header is now public.
@@ -267,11 +277,11 @@ Existing integration tests use the default (unconfigured) plugin. Set `NODE_ENV=
 
 Single Strapi CMS instance running in `NODE_ENV=production`. Three frontends:
 
-| Frontend | Token | Sends header | Result |
-|---|---|---|---|
-| prod | `prod-read` (or none) | no | published content |
-| UAT | `preview-uat` | yes | drafts |
-| develop | `preview-develop` | yes | drafts |
+| Frontend | Token                 | Sends header | Result            |
+| -------- | --------------------- | ------------ | ----------------- |
+| prod     | `prod-read` (or none) | no           | published content |
+| UAT      | `preview-uat`         | yes          | drafts            |
+| develop  | `preview-develop`     | yes          | drafts            |
 
 Plugin config:
 
@@ -295,7 +305,7 @@ For full leak prevention against authenticated callers passing `?status=draft` d
 
 ## Worked example — specific user gets drafts in prod
 
-Single Strapi running in `NODE_ENV=production`. One user (e.g. a marketing editor) needs draft access; everyone else, including other authenticated users, must not see drafts via *any* path.
+Single Strapi running in `NODE_ENV=production`. One user (e.g. a marketing editor) needs draft access; everyone else, including other authenticated users, must not see drafts via _any_ path.
 
 Three flavours depending on where the user lives:
 
@@ -310,6 +320,7 @@ Three flavours depending on where the user lives:
   },
 },
 ```
+
 Any admin-panel user calling `/api/*` with their admin JWT gets drafts. Cookie-style admin sessions are out of scope; admin must call with a Bearer token.
 
 ### Users-permissions user (role-based)
@@ -323,6 +334,7 @@ Any admin-panel user calling `/api/*` with their admin JWT gets drafts. Cookie-s
   },
 },
 ```
+
 Pin to a single identity instead of a role: `ctx.state.user?.email === "alice@example.com"`.
 
 ### Specific API token
@@ -340,10 +352,10 @@ Pin to a single identity instead of a role: `ctx.state.user?.email === "alice@ex
 
 ### Coverage table (applies to all three flavours)
 
-| Caller | `?status=draft` (native) | `x-include-drafts` header |
-|---|---|---|
-| Matching user | drafts | drafts |
-| Non-matching authenticated user | rewritten → published | silent fallback → published |
-| Anonymous | rewritten → published | silent fallback → published |
+| Caller                          | `?status=draft` (native) | `x-include-drafts` header   |
+| ------------------------------- | ------------------------ | --------------------------- |
+| Matching user                   | drafts                   | drafts                      |
+| Non-matching authenticated user | rewritten → published    | silent fallback → published |
+| Anonymous                       | rewritten → published    | silent fallback → published |
 
 Both bypass paths run through the same gate. `guardNativeStatus: true` is the load-bearing flag — without it the native path leaks; with it, drafts are genuinely private.

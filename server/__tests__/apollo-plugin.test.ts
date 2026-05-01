@@ -12,6 +12,7 @@ const buildParams = (overrides: {
   args?: Record<string, unknown>;
   acceptsStatus?: boolean;
   explicitStatus?: boolean;
+  explicitStatusValue?: "DRAFT" | "PUBLISHED";
   rootQueryArgs?: Record<string, unknown> | null;
 }): Params => {
   const {
@@ -22,6 +23,7 @@ const buildParams = (overrides: {
     args = {},
     acceptsStatus = true,
     explicitStatus = false,
+    explicitStatusValue,
     rootQueryArgs = {},
   } = overrides;
 
@@ -29,7 +31,17 @@ const buildParams = (overrides: {
     ? [{ name: "status" }, { name: "filters" }]
     : [{ name: "filters" }];
 
-  const argumentNodes = explicitStatus ? [{ name: { value: "status" } }] : [];
+  const argumentNodes =
+    explicitStatus || explicitStatusValue
+      ? [
+          {
+            name: { value: "status" },
+            value: explicitStatusValue
+              ? { kind: "EnumValue", value: explicitStatusValue }
+              : { kind: "EnumValue", value: "PUBLISHED" },
+          },
+        ]
+      : [];
 
   return {
     source,
@@ -56,93 +68,93 @@ const buildParams = (overrides: {
 const config: PluginConfig = defaultConfig;
 
 describe("applyDraftStatus", () => {
-  it("injects draft status when header is set and field accepts status", () => {
+  it("injects draft status when header is set and field accepts status", async () => {
     const params = buildParams({ header: "true" });
 
-    applyDraftStatus(params, config);
+    await applyDraftStatus(params, config);
 
     expect(params.args.status).toBe("draft");
     expect(params.contextValue.rootQueryArgs?.status).toBe("draft");
   });
 
-  it("overrides a default-valued args.status (Strapi schema sets PUBLISHED)", () => {
+  it("overrides a default-valued args.status (Strapi schema sets PUBLISHED)", async () => {
     const params = buildParams({
       header: "true",
       args: { status: "published" },
     });
 
-    applyDraftStatus(params, config);
+    await applyDraftStatus(params, config);
 
     expect(params.args.status).toBe("draft");
   });
 
-  it("honours an explicit status arg from the query AST", () => {
+  it("honours an explicit status arg from the query AST", async () => {
     const params = buildParams({
       header: "true",
       explicitStatus: true,
       args: { status: "published" },
     });
 
-    applyDraftStatus(params, config);
+    await applyDraftStatus(params, config);
 
     expect(params.args.status).toBe("published");
     expect(params.contextValue.rootQueryArgs?.status).toBeUndefined();
   });
 
-  it("does nothing when the header is missing", () => {
+  it("does nothing when the header is missing", async () => {
     const params = buildParams({});
 
-    applyDraftStatus(params, config);
+    await applyDraftStatus(params, config);
 
     expect(params.args.status).toBeUndefined();
     expect(params.contextValue.rootQueryArgs?.status).toBeUndefined();
   });
 
-  it("does nothing when the header value doesn't match expected", () => {
+  it("does nothing when the header value doesn't match expected", async () => {
     const params = buildParams({ header: "false" });
 
-    applyDraftStatus(params, config);
+    await applyDraftStatus(params, config);
 
     expect(params.args.status).toBeUndefined();
   });
 
-  it("does nothing for sub-fields (source defined)", () => {
+  it("does nothing for sub-fields (source defined)", async () => {
     const params = buildParams({
       header: "true",
       source: { documentId: "abc" },
       fieldName: "section",
     });
 
-    applyDraftStatus(params, config);
+    await applyDraftStatus(params, config);
 
     expect(params.args.status).toBeUndefined();
   });
 
-  it("does nothing for mutation operations", () => {
+  it("does nothing for mutation operations", async () => {
     const params = buildParams({ header: "true", operation: "mutation" });
 
-    applyDraftStatus(params, config);
+    await applyDraftStatus(params, config);
 
     expect(params.args.status).toBeUndefined();
   });
 
-  it("skips fields that don't accept a status arg", () => {
+  it("skips fields that don't accept a status arg", async () => {
     const params = buildParams({ header: "true", acceptsStatus: false });
 
-    applyDraftStatus(params, config);
+    await applyDraftStatus(params, config);
 
     expect(params.args.status).toBeUndefined();
   });
 
-  it("works when rootQueryArgs is absent (mutates args only)", () => {
+  it("works when rootQueryArgs is absent (mutates args only)", async () => {
     const params = buildParams({ header: "true", rootQueryArgs: null });
 
-    applyDraftStatus(params, config);
+    await applyDraftStatus(params, config);
 
     expect(params.args.status).toBe("draft");
   });
 
-  it("respects custom headerName from config", () => {
+  it("respects custom headerName from config", async () => {
     const customConfig: PluginConfig = {
       ...defaultConfig,
       headerName: "x-strapi-preview",
@@ -166,22 +178,130 @@ describe("applyDraftStatus", () => {
       },
     };
 
-    applyDraftStatus(params, customConfig);
+    await applyDraftStatus(params, customConfig);
 
     expect(params.args.status).toBe("draft");
   });
 
-  it("respects custom statusValue from config", () => {
+  it("respects custom statusValue from config", async () => {
     const customConfig: PluginConfig = {
       ...defaultConfig,
       statusValue: "preview",
     };
     const params = buildParams({ header: "true" });
 
-    applyDraftStatus(params, customConfig);
+    await applyDraftStatus(params, customConfig);
 
     expect(params.args.status).toBe("preview");
     expect(params.contextValue.rootQueryArgs?.status).toBe("preview");
+  });
+
+  it("silent fallback: header sent but gate denies (production, no auth)", async () => {
+    const original = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      const params = buildParams({ header: "true" });
+      await applyDraftStatus(params, config);
+      expect(params.args.status).toBeUndefined();
+      expect(params.contextValue.rootQueryArgs?.status).toBeUndefined();
+    } finally {
+      process.env.NODE_ENV = original;
+    }
+  });
+
+  it("authorize=true allows the header through in production", async () => {
+    const original = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      const allowing: PluginConfig = { ...config, authorize: () => true };
+      const params = buildParams({ header: "true" });
+      await applyDraftStatus(params, allowing);
+      expect(params.args.status).toBe("draft");
+    } finally {
+      process.env.NODE_ENV = original;
+    }
+  });
+
+  it("explicit status: DRAFT passes through when gate allows", async () => {
+    const guarded: PluginConfig = { ...config, guardNativeStatus: true };
+    const params = buildParams({
+      explicitStatusValue: "DRAFT",
+      args: { status: "draft" },
+    });
+    await applyDraftStatus(params, guarded);
+    expect(params.args.status).toBe("draft");
+  });
+
+  it("explicit status: DRAFT rewritten to published on deny when guardNativeStatus is set", async () => {
+    const original = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      const guarded: PluginConfig = { ...config, guardNativeStatus: true };
+      const params = buildParams({
+        explicitStatusValue: "DRAFT",
+        args: { status: "draft" },
+      });
+      await applyDraftStatus(params, guarded);
+      expect(params.args.status).toBe("published");
+      expect(params.contextValue.rootQueryArgs?.status).toBe("published");
+    } finally {
+      process.env.NODE_ENV = original;
+    }
+  });
+
+  it("explicit status: DRAFT left alone on deny without guardNativeStatus", async () => {
+    const original = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      const params = buildParams({
+        explicitStatusValue: "DRAFT",
+        args: { status: "draft" },
+      });
+      await applyDraftStatus(params, config);
+      expect(params.args.status).toBe("draft");
+    } finally {
+      process.env.NODE_ENV = original;
+    }
+  });
+
+  it("status: $var (VariableNode) is not detected as explicit status — header path applies", async () => {
+    const guarded: PluginConfig = { ...config, guardNativeStatus: true };
+
+    // Manually construct params with a Variable-kind AST node (no .value.value).
+    const params: Params = {
+      source: undefined,
+      args: {},
+      contextValue: {
+        koaContext: { request: { header: { "x-include-drafts": "true" } } },
+        rootQueryArgs: {},
+      },
+      info: {
+        fieldName: "portalResources",
+        operation: { operation: "query" },
+        parentType: {
+          getFields: () => ({
+            portalResources: {
+              args: [{ name: "status" }, { name: "filters" }],
+            },
+          }),
+        },
+        fieldNodes: [
+          {
+            arguments: [
+              {
+                name: { value: "status" },
+                value: { kind: "Variable", name: { value: "statusVar" } },
+              },
+            ],
+          },
+        ],
+      },
+    };
+
+    // In test env the gate allows; header path should inject draft.
+    await applyDraftStatus(params, guarded);
+
+    expect(params.args.status).toBe("draft");
   });
 });
 
@@ -190,12 +310,30 @@ describe("createApolloPlugin", () => {
     const plugin = createApolloPlugin(defaultConfig);
 
     const requestState = await plugin.requestDidStart();
-    const executionState = await requestState.executionDidStart();
-
     const params = buildParams({ header: "true" });
+    const executionState = await requestState.executionDidStart({
+      contextValue: params.contextValue,
+    });
+
     executionState.willResolveField(params);
 
     expect(params.args.status).toBe("draft");
     expect(params.contextValue.rootQueryArgs?.status).toBe("draft");
+  });
+
+  it("willResolveField is synchronous (returns undefined, not a Promise)", async () => {
+    const plugin = createApolloPlugin(defaultConfig);
+    const requestState = await plugin.requestDidStart();
+    const params = buildParams({ header: "true" });
+    const executionState = await requestState.executionDidStart({
+      contextValue: params.contextValue,
+    });
+
+    const result = executionState.willResolveField(params);
+
+    // Apollo's invokeSyncDidStartHook treats any non-undefined return as
+    // a didEndHook and tries to invoke it. Returning a Promise (from an
+    // async willResolveField) triggers `TypeError: didEndHook is not a function`.
+    expect(result).toBeUndefined();
   });
 });

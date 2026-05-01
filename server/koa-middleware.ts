@@ -1,9 +1,13 @@
+import { detectRestSignals, runGate } from "./auth-gate";
 import type { PluginConfig } from "./config";
 
-interface KoaContext {
+export interface KoaContext {
   path: string;
   request: { header: Record<string, string | string[] | undefined> };
   query: Record<string, unknown>;
+  state?: {
+    auth?: { strategy?: { name?: string }; credentials?: unknown };
+  };
 }
 
 interface CreateKoaMiddlewareOptions {
@@ -12,21 +16,10 @@ interface CreateKoaMiddlewareOptions {
 }
 
 /**
- * Koa middleware that injects `status: "<statusValue>"` into the REST
- * request's query string when the configured header is set.
- *
- * Strapi v5's REST controllers read `ctx.query.status` and pass it through
- * to `strapi.documents().findMany({ status, ... })`. Relation populates
- * over REST inherit the parent document's status by default (no
- * rootQueryArgs trickery needed, unlike GraphQL), so simply forwarding the
- * status query param is enough.
- *
- * Defensive guards:
- *   - Only acts on requests under the configured REST API prefix
- *     (`api.rest.prefix`, default `/api`). Admin and GraphQL routes are
- *     untouched.
- *   - Honours an explicit `status` query param. A request that already
- *     passes `?status=published` keeps that value.
+ * Koa middleware that applies the draft-preview auth gate to REST requests
+ * under `apiPrefix`. On allow with header, sets `ctx.query.status` to the
+ * configured statusValue. On deny with `guardNativeStatus`, rewrites a
+ * native `?status=draft` to "published".
  */
 export function createKoaMiddleware({
   config,
@@ -45,15 +38,23 @@ export function createKoaMiddleware({
       return next();
     }
 
-    const headerValue = ctx.request.header[config.headerName];
+    const { header, nativeRest } = detectRestSignals(ctx, config);
 
-    if (headerValue !== config.expectedHeaderValue) {
+    if (!header && !nativeRest) {
       return next();
     }
 
-    if (ctx.query.status === undefined) {
-      ctx.query.status = config.statusValue;
+    const allowed = await runGate(ctx, config);
+
+    if (allowed) {
+      // Honour an explicit `?status=published` from the caller.
+      if (header && ctx.query.status === undefined) {
+        ctx.query.status = config.statusValue;
+      }
+    } else if (nativeRest && config.guardNativeStatus) {
+      ctx.query.status = "published";
     }
+    // header on deny: silent fallback, no mutation.
 
     return next();
   };

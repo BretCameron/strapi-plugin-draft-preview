@@ -129,4 +129,115 @@ describe("createKoaMiddleware", () => {
 
     expect(ctx.query.status).toBe("preview");
   });
+
+  it("silent fallback: header sent but gate denies (production, no auth)", async () => {
+    const original = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      const middleware = createKoaMiddleware({ config, apiPrefix: "/api" });
+      const ctx = buildCtx({ header: { "x-include-drafts": "true" } });
+      const next = vi.fn().mockResolvedValue(undefined);
+
+      await middleware(ctx, next);
+
+      expect(ctx.query.status).toBeUndefined();
+      expect(next).toHaveBeenCalledOnce();
+    } finally {
+      process.env.NODE_ENV = original;
+    }
+  });
+
+  it("authorize=true allows the header through in production", async () => {
+    const original = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      const allowing: PluginConfig = { ...config, authorize: () => true };
+      const middleware = createKoaMiddleware({
+        config: allowing,
+        apiPrefix: "/api",
+      });
+      const ctx = buildCtx({ header: { "x-include-drafts": "true" } });
+      const next = vi.fn().mockResolvedValue(undefined);
+
+      await middleware(ctx, next);
+
+      expect(ctx.query.status).toBe("draft");
+    } finally {
+      process.env.NODE_ENV = original;
+    }
+  });
+
+  it("native ?status=draft with guardNativeStatus rewrites to published when denied", async () => {
+    const original = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      const guarded: PluginConfig = { ...config, guardNativeStatus: true };
+      const middleware = createKoaMiddleware({
+        config: guarded,
+        apiPrefix: "/api",
+      });
+      const ctx = buildCtx({ query: { status: "draft" } });
+      const next = vi.fn().mockResolvedValue(undefined);
+
+      await middleware(ctx, next);
+
+      expect(ctx.query.status).toBe("published");
+    } finally {
+      process.env.NODE_ENV = original;
+    }
+  });
+
+  it("native ?status=draft without guardNativeStatus is left alone", async () => {
+    const original = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      const middleware = createKoaMiddleware({ config, apiPrefix: "/api" });
+      const ctx = buildCtx({ query: { status: "draft" } });
+      const next = vi.fn().mockResolvedValue(undefined);
+
+      await middleware(ctx, next);
+
+      expect(ctx.query.status).toBe("draft");
+    } finally {
+      process.env.NODE_ENV = original;
+    }
+  });
+
+  it("native ?status=draft passes through when gate allows", async () => {
+    // NODE_ENV is not 'production' under vitest; env gate allows.
+    const guarded: PluginConfig = { ...config, guardNativeStatus: true };
+    const middleware = createKoaMiddleware({
+      config: guarded,
+      apiPrefix: "/api",
+    });
+    const ctx = buildCtx({ query: { status: "draft" } });
+    const next = vi.fn().mockResolvedValue(undefined);
+
+    await middleware(ctx, next);
+
+    expect(ctx.query.status).toBe("draft");
+  });
+
+  it("header + ?status=draft + production deny + guardNativeStatus → native rewrite wins, header dropped", async () => {
+    const original = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      const guarded: PluginConfig = { ...config, guardNativeStatus: true };
+      const middleware = createKoaMiddleware({
+        config: guarded,
+        apiPrefix: "/api",
+      });
+      const ctx = buildCtx({
+        header: { "x-include-drafts": "true" },
+        query: { status: "draft" },
+      });
+      const next = vi.fn().mockResolvedValue(undefined);
+
+      await middleware(ctx, next);
+
+      expect(ctx.query.status).toBe("published");
+    } finally {
+      process.env.NODE_ENV = original;
+    }
+  });
 });

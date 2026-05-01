@@ -36,6 +36,14 @@
     "url": "git+https://github.com/BretCameron/strapi-plugin-draft-preview.git"
   },
   "main": "strapi-server.js",
+  "exports": {
+    ".": "./strapi-server.js",
+    "./middleware": {
+      "types": "./dist/server/middleware.d.ts",
+      "default": "./dist/server/middleware.js"
+    },
+    "./package.json": "./package.json"
+  },
   "files": [
     "dist",
     "strapi-server.js",
@@ -67,6 +75,7 @@
     "@strapi/plugin-users-permissions": "^5.43.0",
     "@strapi/strapi": "^5.0.0",
     "@strapi/typescript-utils": "^5.0.0",
+    "@types/koa": "^2.15.0",
     "@types/node": "^25.6.0",
     "@vitest/coverage-v8": "^4.1.5",
     "better-sqlite3": "^12.9.0",
@@ -74,6 +83,7 @@
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.5.0",
     "graphql": "^16.0.0",
+    "koa": "^2.16.4",
     "prettier": "^3.8.3",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.59.1",
