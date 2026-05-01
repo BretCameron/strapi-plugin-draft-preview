@@ -65,11 +65,13 @@ Whether the plugin honours the header is decided by the auth gate, in this order
 | Denied by gate, `guardNativeStatus: false` (default) | drafts (Strapi serves them) | published                 |
 | Denied by gate, `guardNativeStatus: true`            | published                   | published                 |
 
-### Use case 1: staging only, prod hidden
+### Use case 1: staging only, prod hidden (separate Strapi instances)
 
-Default behaviour. Ship the plugin, set `NODE_ENV=production` on prod, and the header is automatically ignored there.
+If you run separate Strapi instances per environment (one for staging, one for production), this is the default behaviour: ship the plugin, set `NODE_ENV=production` on the prod instance, and the header is automatically ignored there.
 
-### Use case 2: admin-only previews in production
+If you run one Strapi instance serving multiple frontends (a shared CMS), use case 2 below is the right pattern instead. The env gate alone won't help: a single CMS in production would deny the header for every frontend, including staging.
+
+### Use case 2: admin-only previews in production (single shared CMS)
 
 ```js
 "draft-preview": {
@@ -79,6 +81,8 @@ Default behaviour. Ship the plugin, set `NODE_ENV=production` on prod, and the h
 ```
 
 Bake an API token into your preview frontend, send it with `Authorization: Bearer <token>` plus the preview header. Anyone without the token gets published, including via `?status=draft`.
+
+This is also the right shape for one Strapi instance serving multiple frontend environments (prod, UAT, develop, etc.). The token decides who sees drafts, not `NODE_ENV`.
 
 ### Use case 3: per-environment isolation
 
