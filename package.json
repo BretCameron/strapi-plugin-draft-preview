@@ -1,6 +1,6 @@
 {
   "name": "strapi-plugin-draft-preview",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Preview unpublished Strapi v5 content from your frontend by sending one HTTP header. Works on both REST and GraphQL with all populated relations, no per-query rewrites needed.",
   "keywords": [
     "strapi",
