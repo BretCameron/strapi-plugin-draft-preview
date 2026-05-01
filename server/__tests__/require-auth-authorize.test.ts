@@ -1,3 +1,4 @@
+import type { Core } from "@strapi/strapi";
 import { describe, expect, it, vi } from "vitest";
 import { buildRequireAuthAuthorize } from "../require-auth-authorize";
 
@@ -10,7 +11,7 @@ const buildMockStrapi = (apiTokenService: {
       if (name === "admin::api-token") return apiTokenService;
       return null;
     }),
-  }) as any;
+  }) as unknown as Core.Strapi;
 
 const ctxWithHeader = (
   authorization?: string | string[],

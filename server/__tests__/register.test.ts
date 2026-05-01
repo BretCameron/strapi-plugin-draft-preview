@@ -1,3 +1,4 @@
+import type { Core } from "@strapi/strapi";
 import { describe, expect, it, vi } from "vitest";
 import register from "../register";
 import { defaultConfig, type PluginConfig } from "../config";
@@ -15,7 +16,10 @@ const buildStrapi = (pluginConfig: PluginConfig) => {
   };
   const server = { app: { use: vi.fn() } };
   const plugin = vi.fn(() => null);
-  return { strapi: { log, config, server, plugin } as any };
+  return {
+    strapi: { log, config, server, plugin } as unknown as Core.Strapi,
+    log,
+  };
 };
 
 describe("register — boot-time warning", () => {
@@ -23,10 +27,10 @@ describe("register — boot-time warning", () => {
     const original = process.env.NODE_ENV;
     process.env.NODE_ENV = "production";
     try {
-      const { strapi } = buildStrapi(defaultConfig);
+      const { strapi, log } = buildStrapi(defaultConfig);
       register({ strapi });
-      expect(strapi.log.warn).toHaveBeenCalledTimes(1);
-      expect(strapi.log.warn.mock.calls[0][0]).toMatch(
+      expect(log.warn).toHaveBeenCalledTimes(1);
+      expect(log.warn.mock.calls[0][0]).toMatch(
         /running in production with no auth gate/,
       );
     } finally {
@@ -38,12 +42,12 @@ describe("register — boot-time warning", () => {
     const original = process.env.NODE_ENV;
     process.env.NODE_ENV = "production";
     try {
-      const { strapi } = buildStrapi({
+      const { strapi, log } = buildStrapi({
         ...defaultConfig,
         authorize: () => true,
       });
       register({ strapi });
-      expect(strapi.log.warn).not.toHaveBeenCalled();
+      expect(log.warn).not.toHaveBeenCalled();
     } finally {
       process.env.NODE_ENV = original;
     }
@@ -53,12 +57,12 @@ describe("register — boot-time warning", () => {
     const original = process.env.NODE_ENV;
     process.env.NODE_ENV = "production";
     try {
-      const { strapi } = buildStrapi({
+      const { strapi, log } = buildStrapi({
         ...defaultConfig,
         requireAuth: true,
       });
       register({ strapi });
-      expect(strapi.log.warn).not.toHaveBeenCalled();
+      expect(log.warn).not.toHaveBeenCalled();
     } finally {
       process.env.NODE_ENV = original;
     }
@@ -68,9 +72,9 @@ describe("register — boot-time warning", () => {
     const original = process.env.NODE_ENV;
     process.env.NODE_ENV = "development";
     try {
-      const { strapi } = buildStrapi(defaultConfig);
+      const { strapi, log } = buildStrapi(defaultConfig);
       register({ strapi });
-      expect(strapi.log.warn).not.toHaveBeenCalled();
+      expect(log.warn).not.toHaveBeenCalled();
     } finally {
       process.env.NODE_ENV = original;
     }

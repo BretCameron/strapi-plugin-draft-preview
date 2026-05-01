@@ -1,6 +1,7 @@
 process.env.DRAFT_PREVIEW_REQUIRE_AUTH = "true";
 process.env.PORT = "1339";
 
+import type { Core } from "@strapi/strapi";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { resolve } from "node:path";
 import { mkdirSync, rmSync } from "node:fs";
@@ -12,18 +13,31 @@ const APP_DIR = resolve(__dirname, "test-app");
 const PORT = 1339;
 const REST_BASE = `http://127.0.0.1:${PORT}/api`;
 
-let strapiInstance: any;
+interface ArticleResponse {
+  data: { documentId: string; title: string };
+}
+
+interface UsersPermissionsRole {
+  id: number | string;
+  type: string;
+  permissions: Record<string, unknown>;
+}
+
+let strapiInstance: Core.Strapi;
 let apiToken: string;
 let articleDocumentId: string;
 
-const rest = async (path: string, headers: Record<string, string> = {}) => {
+const rest = async <T = unknown>(
+  path: string,
+  headers: Record<string, string> = {},
+): Promise<T> => {
   const res = await fetch(`${REST_BASE}${path}`, { headers });
 
   if (!res.ok) {
     throw new Error(`REST ${res.status}: ${await res.text()}`);
   }
 
-  return (await res.json()) as { data: any };
+  return (await res.json()) as T;
 };
 
 beforeAll(async () => {
@@ -47,11 +61,14 @@ beforeAll(async () => {
 
   // Grant public role read access on Article so unauthenticated requests
   // succeed (required for the "no token → published" assertion).
-  const roles = await strapiInstance
+  const roles = (await strapiInstance
     .service("plugin::users-permissions.role")
-    .find();
+    .find()) as UsersPermissionsRole[];
 
-  const publicRoleId = roles.find((r: any) => r.type === "public").id;
+  const publicRoleId = roles.find((r) => r.type === "public")?.id;
+  if (publicRoleId === undefined) {
+    throw new Error("public role not found in users-permissions");
+  }
 
   const publicRole = await strapiInstance
     .service("plugin::users-permissions.role")
@@ -120,7 +137,7 @@ afterAll(async () => {
 
 describe("requireAuth gate (integration)", () => {
   it("token + header → drafts", async () => {
-    const data = await rest(`/articles/${articleDocumentId}`, {
+    const data = await rest<ArticleResponse>(`/articles/${articleDocumentId}`, {
       Authorization: `Bearer ${apiToken}`,
       "x-include-drafts": "true",
     });
@@ -129,7 +146,7 @@ describe("requireAuth gate (integration)", () => {
   });
 
   it("no token + header → published (silent fallback)", async () => {
-    const data = await rest(`/articles/${articleDocumentId}`, {
+    const data = await rest<ArticleResponse>(`/articles/${articleDocumentId}`, {
       "x-include-drafts": "true",
     });
 
