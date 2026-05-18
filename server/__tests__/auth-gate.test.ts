@@ -72,8 +72,18 @@ describe("checkBuiltInAuth", () => {
     expect(checkBuiltInAuth(ctxWithStrategy("api-token"), true)).toBe(true);
   });
 
+  it("requireAuth=true allows content-api-token (Strapi 5.44+)", () => {
+    expect(checkBuiltInAuth(ctxWithStrategy("content-api-token"), true)).toBe(
+      true,
+    );
+  });
+
   it("requireAuth=true allows admin", () => {
     expect(checkBuiltInAuth(ctxWithStrategy("admin"), true)).toBe(true);
+  });
+
+  it("requireAuth=true allows admin-token (Strapi 5.44+)", () => {
+    expect(checkBuiltInAuth(ctxWithStrategy("admin-token"), true)).toBe(true);
   });
 
   it("requireAuth=true denies users-permissions", () => {
@@ -86,16 +96,28 @@ describe("checkBuiltInAuth", () => {
     expect(checkBuiltInAuth(ctxWithStrategy(undefined), true)).toBe(false);
   });
 
-  it('requireAuth="api-token" allows only api-token', () => {
+  it('requireAuth="api-token" allows api-token or content-api-token', () => {
     expect(checkBuiltInAuth(ctxWithStrategy("api-token"), "api-token")).toBe(
       true,
     );
+    expect(
+      checkBuiltInAuth(ctxWithStrategy("content-api-token"), "api-token"),
+    ).toBe(true);
     expect(checkBuiltInAuth(ctxWithStrategy("admin"), "api-token")).toBe(false);
+    expect(checkBuiltInAuth(ctxWithStrategy("admin-token"), "api-token")).toBe(
+      false,
+    );
   });
 
-  it('requireAuth="admin" allows only admin', () => {
+  it('requireAuth="admin" allows admin or admin-token', () => {
     expect(checkBuiltInAuth(ctxWithStrategy("admin"), "admin")).toBe(true);
+    expect(checkBuiltInAuth(ctxWithStrategy("admin-token"), "admin")).toBe(
+      true,
+    );
     expect(checkBuiltInAuth(ctxWithStrategy("api-token"), "admin")).toBe(false);
+    expect(
+      checkBuiltInAuth(ctxWithStrategy("content-api-token"), "admin"),
+    ).toBe(false);
   });
 });
 

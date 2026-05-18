@@ -23,6 +23,12 @@ export function detectRestSignals(
   return { header, nativeRest };
 }
 
+// Strapi 5.44 renamed the auth strategies: `api-token` → `content-api-token`
+// and `admin` → `admin-token`. Accept both so the plugin works on 5.43 and
+// 5.44+ without users having to know which name applies.
+const API_TOKEN_STRATEGIES = new Set(["api-token", "content-api-token"]);
+const ADMIN_STRATEGIES = new Set(["admin", "admin-token"]);
+
 /**
  * Built-in auth check based on `ctx.state.auth.strategy.name`.
  *
@@ -39,11 +45,24 @@ export function checkBuiltInAuth(
 
   const strategyName = ctx.state?.auth?.strategy?.name;
 
+  if (!strategyName) return false;
+
   if (requireAuth === true) {
-    return strategyName === "api-token" || strategyName === "admin";
+    return (
+      API_TOKEN_STRATEGIES.has(strategyName) ||
+      ADMIN_STRATEGIES.has(strategyName)
+    );
   }
 
-  return strategyName === requireAuth;
+  if (requireAuth === "api-token") {
+    return API_TOKEN_STRATEGIES.has(strategyName);
+  }
+
+  if (requireAuth === "admin") {
+    return ADMIN_STRATEGIES.has(strategyName);
+  }
+
+  return false;
 }
 
 export async function runGate(
