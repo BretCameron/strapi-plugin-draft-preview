@@ -6,6 +6,15 @@ updates:
       interval: "weekly"
       day: "monday"
     open-pull-requests-limit: 5
+    # koa is a type-only import here (DraftPreviewContext extends KoaContext).
+    # Strapi 5.x pins koa ^2 internally — bumping our types to koa 3 creates a
+    # type/runtime drift and duplicates koa 2 across nested node_modules.
+    # Revisit when Strapi tracks koa 3.
+    ignore:
+      - dependency-name: "koa"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/koa"
+        update-types: ["version-update:semver-major"]
     groups:
       strapi:
         patterns:
