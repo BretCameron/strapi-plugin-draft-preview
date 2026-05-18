@@ -1,5 +1,11 @@
 # strapi-plugin-draft-preview
 
+## 2.0.1
+
+### Patch Changes
+
+- efd8c12: Fix `requireAuth` gate on Strapi 5.44+. Strapi renamed its auth strategies (`api-token` → `content-api-token`, `admin` → `admin-token`) in 5.44, which caused the built-in auth check to silently deny valid tokens and fall back to published content. The gate now accepts both old and new strategy names, so the plugin works on Strapi 5.43 and 5.44+ without config changes.
+
 ## 2.0.0
 
 ### Major Changes
